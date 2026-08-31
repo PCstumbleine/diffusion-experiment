@@ -6,20 +6,25 @@ time BEFORE it was actually publicly available — using
 evidence_publicly_available_at, never relationship_valid_from and never
 system_observed_at, for historical point-in-time queries.
 """
-from conftest import make_entity
+from conftest import make_entity, make_extraction_run
 
 
 def insert_relationship(conn, a, b, valid_from, publicly_available_at, observed_at):
+    # extraction_run_id is required (migration 002's provenance FK) even
+    # for these hand-crafted fixtures -- a fresh throwaway run is enough
+    # since these tests are about the bitemporal columns, not provenance.
+    extraction_run_id = make_extraction_run(conn)
     with conn.cursor() as cur:
         cur.execute(
             """
             INSERT INTO entity_relationships (
                 entity_id_a, entity_id_b, relationship_type,
                 source_authority, relationship_evidence, shock_transmission_evidence,
-                relationship_valid_from, evidence_publicly_available_at, system_observed_at
-            ) VALUES (%s, %s, 'supplier', 'company', 'explicit_named', 'historical', %s, %s, %s)
+                relationship_valid_from, evidence_publicly_available_at, system_observed_at,
+                extraction_run_id
+            ) VALUES (%s, %s, 'supplier', 'company', 'explicit_named', 'historical', %s, %s, %s, %s)
             """,
-            (a, b, valid_from, publicly_available_at, observed_at),
+            (a, b, valid_from, publicly_available_at, observed_at, extraction_run_id),
         )
 
 

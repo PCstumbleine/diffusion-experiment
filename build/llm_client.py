@@ -17,7 +17,6 @@ for real.
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
 
 PROMPT_PATH = Path(__file__).parent / "extraction_prompt_v1.md"
@@ -45,8 +44,21 @@ def load_prompt_texts(path: Path = PROMPT_PATH) -> tuple[str, str, dict]:
     return system_prompt, task_instructions, schema
 
 
+EXTRACTION_TOOL_NAME = "record_extraction"
+
+
 class AnthropicExtractionClient:
-    """Real client -- not used by any test. Requires ANTHROPIC_API_KEY."""
+    """Real client -- not used by any test. Requires ANTHROPIC_API_KEY.
+
+    Fix (code review, pre-live-dry-run): the response used to be
+    constrained only by a text instruction ("Return ONLY valid JSON
+    matching the schema") -- prose, nothing the API actually enforced.
+    Now forces a tool call whose input_schema IS the loaded JSON schema,
+    using Claude's tool-use mechanism as the real structured-output
+    constraint; extraction_runner.py separately re-validates the result
+    against the same schema with a real JSON Schema validator before
+    treating it as parseable (belt-and-suspenders: tool-use constrains
+    generation, jsonschema.validate confirms it server-side)."""
 
     def __init__(self, model: str, api_key: str | None = None):
         import anthropic  # deferred import: only needed for real (non-test) use
@@ -66,15 +78,20 @@ class AnthropicExtractionClient:
             f"{self.task_instructions}\n\n"
             f"document_id: {document_id}\n"
             f"extraction_prompt_version: {prompt_version}\n\n"
-            f"--- DOCUMENT TEXT ---\n{raw_content}\n--- END DOCUMENT TEXT ---\n\n"
-            "Return ONLY valid JSON matching the schema. No prose, no markdown fences."
+            f"--- DOCUMENT TEXT ---\n{raw_content}\n--- END DOCUMENT TEXT ---"
         )
+        tool = {
+            "name": EXTRACTION_TOOL_NAME,
+            "description": "Records the structured extraction result. Call this exactly once with the complete result.",
+            "input_schema": self.schema,
+        }
         response = self.client.messages.create(
             model=self.model,
             max_tokens=8192,
             system=self.system_prompt,
+            tools=[tool],
+            tool_choice={"type": "tool", "name": EXTRACTION_TOOL_NAME},
             messages=[{"role": "user", "content": user_message}],
         )
-        raw_text = "".join(block.text for block in response.content if block.type == "text")
-        raw_text = re.sub(r"^```(?:json)?|```$", "", raw_text.strip(), flags=re.MULTILINE).strip()
-        return json.loads(raw_text)
+        tool_use_block = next(block for block in response.content if block.type == "tool_use")
+        return tool_use_block.input

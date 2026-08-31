@@ -1,0 +1,1028 @@
+{
+  "hold_trading_days": 5,
+  "affected_tickers": [
+    "SMCI",
+    "DELL",
+    "HPE"
+  ],
+  "benchmark_tickers": [
+    "SPY",
+    "QQQ"
+  ],
+  "catalysts": [
+    "NVIDIA",
+    "AMD",
+    "BROADCOM"
+  ],
+  "n_completed": 47,
+  "n_pending": 1,
+  "cross_catalyst_overlap_count": 0,
+  "overlap_pairs": [],
+  "pooled": {
+    "n": 47,
+    "compounded_basket": 0.7045916186215835,
+    "compounded_spy": 0.07142092897806629,
+    "compounded_qqq": 0.08289355873446214,
+    "mean_excess_spy": 0.01286981554373804,
+    "mean_excess_qqq": 0.012469605267168062,
+    "wins_spy": 30,
+    "wins_qqq": 29,
+    "p_spy": 0.07894069368148848,
+    "p_qqq": 0.14386508844054902,
+    "corr_reaction_spy": 0.07851498251634784
+  },
+  "per_catalyst": {
+    "NVIDIA": {
+      "n": 15,
+      "compounded_basket": 0.22418804405820136,
+      "compounded_spy": 0.02216787904117412,
+      "compounded_qqq": 0.013785327004192327,
+      "mean_excess_spy": 0.015114875953483368,
+      "mean_excess_qqq": 0.015578550529927048,
+      "wins_spy": 8,
+      "wins_qqq": 9,
+      "p_spy": 1.0,
+      "p_qqq": 0.60723876953125,
+      "corr_reaction_spy": -0.028279630219889676
+    },
+    "AMD": {
+      "n": 16,
+      "compounded_basket": 0.5813745376084458,
+      "compounded_spy": 0.13943507250116038,
+      "compounded_qqq": 0.20022153614206384,
+      "mean_excess_spy": 0.023502942086724207,
+      "mean_excess_qqq": 0.019928251101004508,
+      "wins_spy": 12,
+      "wins_qqq": 11,
+      "p_spy": 0.076812744140625,
+      "p_qqq": 0.210113525390625,
+      "corr_reaction_spy": -0.13277269334319072
+    },
+    "BROADCOM": {
+      "n": 16,
+      "compounded_basket": -0.11948355139229605,
+      "compounded_spy": -0.08008370257099706,
+      "compounded_qqq": -0.11002387941712222,
+      "mean_excess_spy": 0.00013194486661562144,
+      "mean_excess_qqq": 0.0020963232494950607,
+      "wins_spy": 10,
+      "wins_qqq": 9,
+      "p_spy": 0.454498291015625,
+      "p_qqq": 0.803619384765625,
+      "corr_reaction_spy": 0.4343363401345878
+    }
+  },
+  "events": [
+    {
+      "catalyst": "NVIDIA",
+      "catalyst_ticker": "NVDA",
+      "label": "Q3 FY23",
+      "event_date": "2022-11-16",
+      "entry_date": "2022-11-17",
+      "exit_date": "2022-11-23",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": 0.10545454545454547,
+        "DELL": 0.09680424285044387,
+        "HPE": 0.05299480061927864
+      },
+      "spy_return": 0.030641911824932144,
+      "qqq_return": 0.02826715908476718,
+      "basket_return": 0.08508452964142266,
+      "basket_excess_spy": 0.05444261781649051,
+      "basket_excess_qqq": 0.05681737055665548,
+      "catalyst_reaction": -0.011978704525288264
+    },
+    {
+      "catalyst": "NVIDIA",
+      "catalyst_ticker": "NVDA",
+      "label": "Q4 FY23",
+      "event_date": "2023-02-22",
+      "entry_date": "2023-02-23",
+      "exit_date": "2023-03-01",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": 0.14221724524076151,
+        "DELL": -0.04165515078396109,
+        "HPE": -0.02133267245462811
+      },
+      "spy_return": -0.016982356645158014,
+      "qqq_return": -0.022728860503931525,
+      "basket_return": 0.02640980733405744,
+      "basket_excess_spy": 0.043392163979215456,
+      "basket_excess_qqq": 0.04913866783798897,
+      "catalyst_reaction": 0.12942853306111468
+    },
+    {
+      "catalyst": "NVIDIA",
+      "catalyst_ticker": "NVDA",
+      "label": "Q1 FY24",
+      "event_date": "2023-05-24",
+      "entry_date": "2023-05-25",
+      "exit_date": "2023-06-01",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": 0.1785714285714286,
+        "DELL": -0.028633511560340885,
+        "HPE": 0.028751753155680237
+      },
+      "spy_return": 0.0170912325781023,
+      "qqq_return": 0.03797161900244217,
+      "basket_return": 0.05956322338892265,
+      "basket_excess_spy": 0.04247199081082035,
+      "basket_excess_qqq": 0.02159160438648048,
+      "catalyst_reaction": 0.2611175380328645
+    },
+    {
+      "catalyst": "NVIDIA",
+      "catalyst_ticker": "NVDA",
+      "label": "Q2 FY24",
+      "event_date": "2023-08-23",
+      "entry_date": "2023-08-24",
+      "exit_date": "2023-08-30",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": -0.10100671140939599,
+        "DELL": -0.030609843614315513,
+        "HPE": 0.016988396504551195
+      },
+      "spy_return": 0.014204646587072878,
+      "qqq_return": 0.011320359276078218,
+      "basket_return": -0.03820938617305344,
+      "basket_excess_spy": -0.052414032760126315,
+      "basket_excess_qqq": -0.049529745449131655,
+      "catalyst_reaction": 0.06601787123231606
+    },
+    {
+      "catalyst": "NVIDIA",
+      "catalyst_ticker": "NVDA",
+      "label": "Q3 FY24",
+      "event_date": "2023-11-21",
+      "entry_date": "2023-11-22",
+      "exit_date": "2023-11-29",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": -0.019099590723055893,
+        "DELL": 0.010990949032027686,
+        "HPE": 0.04890097439383623
+      },
+      "spy_return": -0.0007987069642050315,
+      "qqq_return": -0.0019561108861348986,
+      "basket_return": 0.01359744423426934,
+      "basket_excess_spy": 0.014396151198474372,
+      "basket_excess_qqq": 0.015553555120404239,
+      "catalyst_reaction": -0.001847290640394017
+    },
+    {
+      "catalyst": "NVIDIA",
+      "catalyst_ticker": "NVDA",
+      "label": "Q4 FY24",
+      "event_date": "2024-02-21",
+      "entry_date": "2024-02-22",
+      "exit_date": "2024-02-28",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": -0.0560693641618496,
+        "DELL": 0.08485517668739817,
+        "HPE": -0.012157786392595127
+      },
+      "spy_return": 0.0044717429869478575,
+      "qqq_return": 0.00180188930130587,
+      "basket_return": 0.005542675377651148,
+      "basket_excess_spy": 0.0010709323907032902,
+      "basket_excess_qqq": 0.0037407860763452776,
+      "catalyst_reaction": 0.11204538507040795
+    },
+    {
+      "catalyst": "NVIDIA",
+      "catalyst_ticker": "NVDA",
+      "label": "Q1 FY25",
+      "event_date": "2024-05-22",
+      "entry_date": "2024-05-23",
+      "exit_date": "2024-05-30",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": -0.114071696094168,
+        "DELL": 0.068735401452229,
+        "HPE": -0.017784485063823574
+      },
+      "spy_return": -0.019416035869151194,
+      "qqq_return": -0.0195532987285435,
+      "basket_return": -0.02104025990192086,
+      "basket_excess_spy": -0.001624224032769666,
+      "basket_excess_qqq": -0.0014869611733773595,
+      "catalyst_reaction": 0.07451281109992447
+    },
+    {
+      "catalyst": "NVIDIA",
+      "catalyst_ticker": "NVDA",
+      "label": "Q2 FY25",
+      "event_date": "2024-08-28",
+      "entry_date": "2024-08-29",
+      "exit_date": "2024-09-05",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": -0.048864418444597435,
+        "DELL": -0.010327351742780433,
+        "HPE": -0.06962618596726056
+      },
+      "spy_return": -0.01910037828501865,
+      "qqq_return": -0.02586152279594911,
+      "basket_return": -0.042939318718212806,
+      "basket_excess_spy": -0.023838940433194157,
+      "basket_excess_qqq": -0.017077795922263696,
+      "catalyst_reaction": -0.033780634006217
+    },
+    {
+      "catalyst": "NVIDIA",
+      "catalyst_ticker": "NVDA",
+      "label": "Q3 FY25",
+      "event_date": "2024-11-20",
+      "entry_date": "2024-11-21",
+      "exit_date": "2024-11-27",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": 0.2669797687861273,
+        "DELL": -0.0863767762562555,
+        "HPE": -0.024337127691371307
+      },
+      "spy_return": 0.009157305690936646,
+      "qqq_return": -0.0018510922777336125,
+      "basket_return": 0.05208862161283349,
+      "basket_excess_spy": 0.04293131592189684,
+      "basket_excess_qqq": 0.0539397138905671,
+      "catalyst_reaction": 0.02372509520967747
+    },
+    {
+      "catalyst": "NVIDIA",
+      "catalyst_ticker": "NVDA",
+      "label": "Q4 FY25",
+      "event_date": "2025-02-26",
+      "entry_date": "2025-02-27",
+      "exit_date": "2025-03-05",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": -0.20725494191970661,
+        "DELL": -0.1687365013076858,
+        "HPE": -0.0782648517792659
+      },
+      "spy_return": -0.023093562424332026,
+      "qqq_return": -0.031106304540678198,
+      "basket_return": -0.15141876500221943,
+      "basket_excess_spy": -0.1283252025778874,
+      "basket_excess_qqq": -0.12031246046154123,
+      "catalyst_reaction": 0.028362471841537396
+    },
+    {
+      "catalyst": "NVIDIA",
+      "catalyst_ticker": "NVDA",
+      "label": "Q1 FY26",
+      "event_date": "2025-05-28",
+      "entry_date": "2025-05-29",
+      "exit_date": "2025-06-04",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": 0.02223766504517033,
+        "DELL": -0.02157645612800907,
+        "HPE": 0.0003041147940250344
+      },
+      "spy_return": 0.004842070270722587,
+      "qqq_return": 0.004640073862841598,
+      "basket_return": 0.0003217745703954315,
+      "basket_excess_spy": -0.004520295700327155,
+      "basket_excess_qqq": -0.0043182992924461665,
+      "catalyst_reaction": 0.05523564831220096
+    },
+    {
+      "catalyst": "NVIDIA",
+      "catalyst_ticker": "NVDA",
+      "label": "Q2 FY26",
+      "event_date": "2025-08-27",
+      "entry_date": "2025-08-28",
+      "exit_date": "2025-09-04",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": -0.09192324854975453,
+        "DELL": -0.05252769299657123,
+        "HPE": 0.014899211218229569
+      },
+      "spy_return": 0.0029080644103900433,
+      "qqq_return": 0.0019528058219167033,
+      "basket_return": -0.0431839101093654,
+      "basket_excess_spy": -0.04609197451975544,
+      "basket_excess_qqq": -0.0451367159312821,
+      "catalyst_reaction": -0.0043056123120889245
+    },
+    {
+      "catalyst": "NVIDIA",
+      "catalyst_ticker": "NVDA",
+      "label": "Q3 FY26",
+      "event_date": "2025-11-19",
+      "entry_date": "2025-11-20",
+      "exit_date": "2025-11-26",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": -0.07599211933577266,
+        "DELL": 0.07766386862940111,
+        "HPE": 0.01905848546315081
+      },
+      "spy_return": 0.010065298487085483,
+      "qqq_return": 0.004322933123497519,
+      "basket_return": 0.006910078252259755,
+      "basket_excess_spy": -0.0031552202348257286,
+      "basket_excess_qqq": 0.002587145128762236,
+      "catalyst_reaction": 0.050571755058672396
+    },
+    {
+      "catalyst": "NVIDIA",
+      "catalyst_ticker": "NVDA",
+      "label": "Q4 FY26",
+      "event_date": "2026-02-25",
+      "entry_date": "2026-02-26",
+      "exit_date": "2026-03-04",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": -0.017158338350391378,
+        "DELL": 0.17578207453891315,
+        "HPE": 0.03241210723364163
+      },
+      "spy_return": -0.011758642002481001,
+      "qqq_return": -0.00785656444614724,
+      "basket_return": 0.06367861447405447,
+      "basket_excess_spy": 0.07543725647653547,
+      "basket_excess_qqq": 0.07153517892020171,
+      "catalyst_reaction": -0.006613089082961765
+    },
+    {
+      "catalyst": "NVIDIA",
+      "catalyst_ticker": "NVDA",
+      "label": "Q1 FY27",
+      "event_date": "2026-05-20",
+      "entry_date": "2026-05-21",
+      "exit_date": "2026-05-28",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": 0.25341426403641854,
+        "DELL": 0.30497512218418876,
+        "HPE": 0.144086494857937
+      },
+      "spy_return": 0.02160802605918133,
+      "qqq_return": 0.03752241276463897,
+      "basket_return": 0.23415862702618143,
+      "basket_excess_spy": 0.2125506009670001,
+      "basket_excess_qqq": 0.19663621426154246,
+      "catalyst_reaction": -0.005301253476472589
+    },
+    {
+      "catalyst": "AMD",
+      "catalyst_ticker": "AMD",
+      "label": "Q3'22",
+      "event_date": "2022-11-01",
+      "entry_date": "2022-11-02",
+      "exit_date": "2022-11-08",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": 0.04400000000000004,
+        "DELL": 0.03615934773551843,
+        "HPE": 0.009112748008140992
+      },
+      "spy_return": -0.004966994333795882,
+      "qqq_return": -0.02015335096620552,
+      "basket_return": 0.029757365247886487,
+      "basket_excess_spy": 0.034724359581682365,
+      "basket_excess_qqq": 0.049910716214092,
+      "catalyst_reaction": 0.055983908816627626
+    },
+    {
+      "catalyst": "AMD",
+      "catalyst_ticker": "AMD",
+      "label": "Q4'22",
+      "event_date": "2023-01-31",
+      "entry_date": "2023-02-01",
+      "exit_date": "2023-02-07",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": 0.13888888888888884,
+        "DELL": 0.03670645746978973,
+        "HPE": 0.006873296899024162
+      },
+      "spy_return": 0.02463528629217482,
+      "qqq_return": 0.05254419380525843,
+      "basket_return": 0.060822881085900914,
+      "basket_excess_spy": 0.036187594793726095,
+      "basket_excess_qqq": 0.008278687280642481,
+      "catalyst_reaction": 0.044178310046573355
+    },
+    {
+      "catalyst": "AMD",
+      "catalyst_ticker": "AMD",
+      "label": "Q1'23",
+      "event_date": "2023-05-02",
+      "entry_date": "2023-05-03",
+      "exit_date": "2023-05-09",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": 0.14051724137931032,
+        "DELL": 0.020736175735690088,
+        "HPE": -0.010709484983173034
+      },
+      "spy_return": -0.0010531808469509407,
+      "qqq_return": 0.005912387299639832,
+      "basket_return": 0.05018131071060913,
+      "basket_excess_spy": 0.05123449155756007,
+      "basket_excess_qqq": 0.044268923410969295,
+      "catalyst_reaction": -0.07084862640418188
+    },
+    {
+      "catalyst": "AMD",
+      "catalyst_ticker": "AMD",
+      "label": "Q2'23",
+      "event_date": "2023-08-01",
+      "entry_date": "2023-08-02",
+      "exit_date": "2023-08-08",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": 0.056890781867964924,
+        "DELL": 0.08554400364899295,
+        "HPE": 0.04949337178100843
+      },
+      "spy_return": -0.009906594499963006,
+      "qqq_return": -0.019145179098905674,
+      "basket_return": 0.06397605243265543,
+      "basket_excess_spy": 0.07388264693261844,
+      "basket_excess_qqq": 0.0831212315315611,
+      "catalyst_reaction": 0.016071428571428514
+    },
+    {
+      "catalyst": "AMD",
+      "catalyst_ticker": "AMD",
+      "label": "Q3'23",
+      "event_date": "2023-10-31",
+      "entry_date": "2023-11-01",
+      "exit_date": "2023-11-07",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": 0.054289266473269926,
+        "DELL": 0.06423766983987655,
+        "HPE": 0.023076854037461958
+      },
+      "spy_return": 0.04227926801770887,
+      "qqq_return": 0.05964339961554521,
+      "basket_return": 0.04720126345020281,
+      "basket_excess_spy": 0.004921995432493942,
+      "basket_excess_qqq": -0.012442136165342399,
+      "catalyst_reaction": 0.0008121827411167182
+    },
+    {
+      "catalyst": "AMD",
+      "catalyst_ticker": "AMD",
+      "label": "Q4'23",
+      "event_date": "2024-01-30",
+      "entry_date": "2024-01-31",
+      "exit_date": "2024-02-06",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": 0.35426187164712886,
+        "DELL": -0.007172887426998398,
+        "HPE": -0.0243070007862054
+      },
+      "spy_return": 0.010959206686043999,
+      "qqq_return": 0.01601724480499289,
+      "basket_return": 0.10759399447797502,
+      "basket_excess_spy": 0.09663478779193102,
+      "basket_excess_qqq": 0.09157674967298213,
+      "catalyst_reaction": -0.036731372776938276
+    },
+    {
+      "catalyst": "AMD",
+      "catalyst_ticker": "AMD",
+      "label": "Q1'24",
+      "event_date": "2024-04-30",
+      "entry_date": "2024-05-01",
+      "exit_date": "2024-05-07",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": 0.05389760740931315,
+        "DELL": 0.037789906297675424,
+        "HPE": 0.000171642388804516
+      },
+      "spy_return": 0.03143515436976485,
+      "qqq_return": 0.04058807612027837,
+      "basket_return": 0.030619718698597698,
+      "basket_excess_spy": -0.0008154356711671529,
+      "basket_excess_qqq": -0.009968357421680674,
+      "catalyst_reaction": -0.06484404596539961
+    },
+    {
+      "catalyst": "AMD",
+      "catalyst_ticker": "AMD",
+      "label": "Q2'24",
+      "event_date": "2024-07-30",
+      "entry_date": "2024-07-31",
+      "exit_date": "2024-08-06",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": -0.13112676056338035,
+        "DELL": -0.175093141241625,
+        "HPE": -0.12869539724420986
+      },
+      "spy_return": -0.04887784995470246,
+      "qqq_return": -0.06056677628909224,
+      "basket_return": -0.1449717663497384,
+      "basket_excess_spy": -0.09609391639503595,
+      "basket_excess_qqq": -0.08440499006064617,
+      "catalyst_reaction": 0.08877492054319558
+    },
+    {
+      "catalyst": "AMD",
+      "catalyst_ticker": "AMD",
+      "label": "Q3'24",
+      "event_date": "2024-10-29",
+      "entry_date": "2024-10-30",
+      "exit_date": "2024-11-05",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": -0.20516499282639888,
+        "DELL": 0.01884510214615953,
+        "HPE": -0.045547273728657856
+      },
+      "spy_return": -0.007890358798873898,
+      "qqq_return": -0.01437242376991199,
+      "basket_return": -0.07728905480296573,
+      "basket_excess_spy": -0.06939869600409183,
+      "basket_excess_qqq": -0.06291663103305374,
+      "catalyst_reaction": -0.07963909774436095
+    },
+    {
+      "catalyst": "AMD",
+      "catalyst_ticker": "AMD",
+      "label": "Q4'24",
+      "event_date": "2025-02-04",
+      "entry_date": "2025-02-05",
+      "exit_date": "2025-02-11",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": 0.24427972929423136,
+        "DELL": 0.08637104884839286,
+        "HPE": 0.017465150488197523
+      },
+      "spy_return": 0.007772239869201947,
+      "qqq_return": 0.011820944814259438,
+      "basket_return": 0.11603864287694059,
+      "basket_excess_spy": 0.10826640300773864,
+      "basket_excess_qqq": 0.10421769806268115,
+      "catalyst_reaction": -0.09949790794979085
+    },
+    {
+      "catalyst": "AMD",
+      "catalyst_ticker": "AMD",
+      "label": "Q1'25",
+      "event_date": "2025-05-06",
+      "entry_date": "2025-05-07",
+      "exit_date": "2025-05-13",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": 0.25048231511254015,
+        "DELL": 0.14905374721261233,
+        "HPE": 0.08260869565217388
+      },
+      "spy_return": 0.04765996119995708,
+      "qqq_return": 0.06951353994483922,
+      "basket_return": 0.16071491932577545,
+      "basket_excess_spy": 0.11305495812581837,
+      "basket_excess_qqq": 0.09120137938093623,
+      "catalyst_reaction": 0.021598053133238704
+    },
+    {
+      "catalyst": "AMD",
+      "catalyst_ticker": "AMD",
+      "label": "Q2'25",
+      "event_date": "2025-08-05",
+      "entry_date": "2025-08-06",
+      "exit_date": "2025-08-12",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": -0.019015423621381755,
+        "DELL": 0.10664594359492496,
+        "HPE": 0.07321841123156214
+      },
+      "spy_return": 0.021681129989420622,
+      "qqq_return": 0.03375637328047332,
+      "basket_return": 0.05361631040170178,
+      "basket_excess_spy": 0.03193518041228116,
+      "basket_excess_qqq": 0.019859937121228466,
+      "catalyst_reaction": -0.05312374505191897
+    },
+    {
+      "catalyst": "AMD",
+      "catalyst_ticker": "AMD",
+      "label": "Q3'25",
+      "event_date": "2025-11-04",
+      "entry_date": "2025-11-05",
+      "exit_date": "2025-11-11",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": -0.13694975544686516,
+        "DELL": -0.08772930370778997,
+        "HPE": -0.03019017892788456
+      },
+      "spy_return": 0.011888637428047133,
+      "qqq_return": 0.004985991575244597,
+      "basket_return": -0.0849564126941799,
+      "basket_excess_spy": -0.09684505012222704,
+      "basket_excess_qqq": -0.0899424042694245,
+      "catalyst_reaction": -0.027234553089382163
+    },
+    {
+      "catalyst": "AMD",
+      "catalyst_ticker": "AMD",
+      "label": "Q4'25",
+      "event_date": "2026-02-03",
+      "entry_date": "2026-02-04",
+      "exit_date": "2026-02-10",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": 0.011532625189681234,
+        "DELL": 0.06642571239715944,
+        "HPE": 0.10087128292641268
+      },
+      "spy_return": 0.0025659121624135306,
+      "qqq_return": -0.005766460358733072,
+      "basket_return": 0.059609873504417786,
+      "basket_excess_spy": 0.057043961342004255,
+      "basket_excess_qqq": 0.06537633386315087,
+      "catalyst_reaction": -0.11197389616290121
+    },
+    {
+      "catalyst": "AMD",
+      "catalyst_ticker": "AMD",
+      "label": "Q1'26",
+      "event_date": "2026-05-05",
+      "entry_date": "2026-05-06",
+      "exit_date": "2026-05-12",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": 0.04293893129770976,
+        "DELL": 0.08215683431720655,
+        "HPE": 0.0023067166082719748
+      },
+      "spy_return": 0.013762369062133795,
+      "qqq_return": 0.028283056621529745,
+      "basket_return": 0.042467494074396095,
+      "basket_excess_spy": 0.0287051250122623,
+      "basket_excess_qqq": 0.01418443745286635,
+      "catalyst_reaction": 0.15264876428531227
+    },
+    {
+      "catalyst": "AMD",
+      "catalyst_ticker": "AMD",
+      "label": "Q2'26",
+      "event_date": "2026-08-04",
+      "entry_date": "2026-08-05",
+      "exit_date": "2026-08-11",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": -0.0034689372437716193,
+        "DELL": -0.05492927561080152,
+        "HPE": 0.045769230769230784
+      },
+      "spy_return": -0.006818328285106756,
+      "qqq_return": -0.010740103270223678,
+      "basket_return": -0.004209660695114119,
+      "basket_excess_spy": 0.0026086675899926375,
+      "basket_excess_qqq": 0.006530442575109559,
+      "catalyst_reaction": -0.06571792201781801
+    },
+    {
+      "catalyst": "BROADCOM",
+      "catalyst_ticker": "AVGO",
+      "label": "Q3 FY22",
+      "event_date": "2022-09-01",
+      "entry_date": "2022-09-02",
+      "exit_date": "2022-09-09",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": 0.03881987577639756,
+        "DELL": 0.038793679723495345,
+        "HPE": -0.0020191383519557737
+      },
+      "spy_return": 0.015783537468206266,
+      "qqq_return": 0.01570241958238694,
+      "basket_return": 0.02519813904931238,
+      "basket_excess_spy": 0.009414601581106113,
+      "basket_excess_qqq": 0.009495719466925439,
+      "catalyst_reaction": 0.05288672120650517
+    },
+    {
+      "catalyst": "BROADCOM",
+      "catalyst_ticker": "AVGO",
+      "label": "Q4 FY22",
+      "event_date": "2022-12-08",
+      "entry_date": "2022-12-09",
+      "exit_date": "2022-12-15",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": -0.05620608899297408,
+        "DELL": -0.059915094497551835,
+        "HPE": -0.026168165392049803
+      },
+      "spy_return": -0.013460704811925073,
+      "qqq_return": -0.0209154912182975,
+      "basket_return": -0.04742978296085857,
+      "basket_excess_spy": -0.0339690781489335,
+      "basket_excess_qqq": -0.02651429174256107,
+      "catalyst_reaction": 0.03738766073082389
+    },
+    {
+      "catalyst": "BROADCOM",
+      "catalyst_ticker": "AVGO",
+      "label": "Q1 FY23",
+      "event_date": "2023-03-02",
+      "entry_date": "2023-03-03",
+      "exit_date": "2023-03-09",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": 0.0010152284263960087,
+        "DELL": -0.0323271080350751,
+        "HPE": -0.07372824922551324
+      },
+      "spy_return": -0.020398669184196083,
+      "qqq_return": -0.00924391873454955,
+      "basket_return": -0.03501337627806411,
+      "basket_excess_spy": -0.014614707093868029,
+      "basket_excess_qqq": -0.025769457543514562,
+      "catalyst_reaction": 0.03176550235387454
+    },
+    {
+      "catalyst": "BROADCOM",
+      "catalyst_ticker": "AVGO",
+      "label": "Q2 FY23",
+      "event_date": "2023-06-01",
+      "entry_date": "2023-06-02",
+      "exit_date": "2023-06-08",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": 0.08443496801705752,
+        "DELL": 0.05260140396036683,
+        "HPE": 0.07014604894090337
+      },
+      "spy_return": 0.010903530463169941,
+      "qqq_return": -0.001859501518429174,
+      "basket_return": 0.0690608069727759,
+      "basket_excess_spy": 0.05815727650960596,
+      "basket_excess_qqq": 0.07092030849120508,
+      "catalyst_reaction": 0.0008801543284300273
+    },
+    {
+      "catalyst": "BROADCOM",
+      "catalyst_ticker": "AVGO",
+      "label": "Q3 FY23",
+      "event_date": "2023-08-31",
+      "entry_date": "2023-09-01",
+      "exit_date": "2023-09-08",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": 0.013357400722021628,
+        "DELL": 0.09998945791220892,
+        "HPE": 0.007698313815760027
+      },
+      "spy_return": -0.016898208931916736,
+      "qqq_return": -0.020546552997386724,
+      "basket_return": 0.040348390816663526,
+      "basket_excess_spy": 0.05724659974858026,
+      "basket_excess_qqq": 0.06089494381405025,
+      "catalyst_reaction": -0.022737828465191567
+    },
+    {
+      "catalyst": "BROADCOM",
+      "catalyst_ticker": "AVGO",
+      "label": "Q4 FY23",
+      "event_date": "2023-12-07",
+      "entry_date": "2023-12-08",
+      "exit_date": "2023-12-14",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": 0.15450980392156866,
+        "DELL": 0.05853441952459493,
+        "HPE": 0.06675829860187399
+      },
+      "spy_return": 0.03181086859191562,
+      "qqq_return": 0.037863659129293126,
+      "basket_return": 0.09326750734934586,
+      "basket_excess_spy": 0.06145663875743024,
+      "basket_excess_qqq": 0.05540384822005273,
+      "catalyst_reaction": 0.006035317450318933
+    },
+    {
+      "catalyst": "BROADCOM",
+      "catalyst_ticker": "AVGO",
+      "label": "Q1 FY24",
+      "event_date": "2024-03-07",
+      "entry_date": "2024-03-08",
+      "exit_date": "2024-03-14",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": -0.06757425742574252,
+        "DELL": -0.11501958908630094,
+        "HPE": -0.052066241698348725
+      },
+      "spy_return": -0.0010002905671395723,
+      "qqq_return": -0.014957914384231774,
+      "basket_return": -0.07822002940346406,
+      "basket_excess_spy": -0.07721973883632449,
+      "basket_excess_qqq": -0.06326211501923229,
+      "catalyst_reaction": -0.008971201437958154
+    },
+    {
+      "catalyst": "BROADCOM",
+      "catalyst_ticker": "AVGO",
+      "label": "Q2 FY24",
+      "event_date": "2024-06-12",
+      "entry_date": "2024-06-13",
+      "exit_date": "2024-06-20",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": 0.16891719745222944,
+        "DELL": 0.12518135890798776,
+        "HPE": 0.03605199817279048
+      },
+      "spy_return": 0.007087387256723199,
+      "qqq_return": 0.007864181038581108,
+      "basket_return": 0.11005018484433589,
+      "basket_excess_spy": 0.10296279758761269,
+      "basket_excess_qqq": 0.10218600380575478,
+      "catalyst_reaction": 0.14339617711189634
+    },
+    {
+      "catalyst": "BROADCOM",
+      "catalyst_ticker": "AVGO",
+      "label": "Q3 FY24",
+      "event_date": "2024-09-05",
+      "entry_date": "2024-09-06",
+      "exit_date": "2024-09-12",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": 0.09975124378109457,
+        "DELL": 0.052819948496712454,
+        "HPE": -0.0410813938983714
+      },
+      "spy_return": 0.01664427672239044,
+      "qqq_return": 0.0280121074305566,
+      "basket_return": 0.03716326612647854,
+      "basket_excess_spy": 0.020518989404088105,
+      "basket_excess_qqq": 0.009151158695921945,
+      "catalyst_reaction": -0.06263613138686142
+    },
+    {
+      "catalyst": "BROADCOM",
+      "catalyst_ticker": "AVGO",
+      "label": "Q4 FY24",
+      "event_date": "2024-12-12",
+      "entry_date": "2024-12-13",
+      "exit_date": "2024-12-19",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": -0.15567567567567575,
+        "DELL": -0.06997664923901059,
+        "HPE": -0.038596430280937954
+      },
+      "spy_return": -0.03348377935971758,
+      "qqq_return": -0.030703665747197073,
+      "basket_return": -0.08808291839854143,
+      "basket_excess_spy": -0.05459913903882385,
+      "basket_excess_qqq": -0.05737925265134436,
+      "catalyst_reaction": 0.18400217751748205
+    },
+    {
+      "catalyst": "BROADCOM",
+      "catalyst_ticker": "AVGO",
+      "label": "Q1 FY25",
+      "event_date": "2025-03-06",
+      "entry_date": "2025-03-07",
+      "exit_date": "2025-03-13",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": 0.07451196040692887,
+        "DELL": 0.007988272415802244,
+        "HPE": -0.03189523666287086
+      },
+      "spy_return": -0.03412551529190355,
+      "qqq_return": -0.03863845983741543,
+      "basket_return": 0.01686833205328675,
+      "basket_excess_spy": 0.0509938473451903,
+      "basket_excess_qqq": 0.05550679189070218,
+      "catalyst_reaction": 0.04611562697778471
+    },
+    {
+      "catalyst": "BROADCOM",
+      "catalyst_ticker": "AVGO",
+      "label": "Q2 FY25",
+      "event_date": "2025-06-05",
+      "entry_date": "2025-06-06",
+      "exit_date": "2025-06-12",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": 0.03139866793529977,
+        "DELL": 0.005089562342895704,
+        "HPE": 0.015149376213377863
+      },
+      "spy_return": 0.008492057120845997,
+      "qqq_return": 0.006909628160876036,
+      "basket_return": 0.017212535497191112,
+      "basket_excess_spy": 0.008720478376345115,
+      "basket_excess_qqq": 0.010302907336315077,
+      "catalyst_reaction": -0.03379717592329823
+    },
+    {
+      "catalyst": "BROADCOM",
+      "catalyst_ticker": "AVGO",
+      "label": "Q3 FY25",
+      "event_date": "2025-09-04",
+      "entry_date": "2025-09-05",
+      "exit_date": "2025-09-11",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": 0.0722127348133692,
+        "DELL": -0.014799601015885733,
+        "HPE": 0.07328547783534844
+      },
+      "spy_return": 0.009430444042188846,
+      "qqq_return": 0.006181704391837073,
+      "basket_return": 0.04356620387761064,
+      "basket_excess_spy": 0.034135759835421796,
+      "basket_excess_qqq": 0.03738449948577357,
+      "catalyst_reaction": 0.16229899625732713
+    },
+    {
+      "catalyst": "BROADCOM",
+      "catalyst_ticker": "AVGO",
+      "label": "Q4 FY25",
+      "event_date": "2025-12-11",
+      "entry_date": "2025-12-12",
+      "exit_date": "2025-12-18",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": -0.12977777777777777,
+        "DELL": -0.1123022064264414,
+        "HPE": -0.019238801490524704
+      },
+      "spy_return": -0.017006671073919177,
+      "qqq_return": -0.020859718072600897,
+      "basket_return": -0.08710626189824795,
+      "basket_excess_spy": -0.07009959082432878,
+      "basket_excess_qqq": -0.06624654382564706,
+      "catalyst_reaction": -0.06501164513728486
+    },
+    {
+      "catalyst": "BROADCOM",
+      "catalyst_ticker": "AVGO",
+      "label": "Q1 FY26",
+      "event_date": "2026-03-04",
+      "entry_date": "2026-03-05",
+      "exit_date": "2026-03-11",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": -0.016398514851485135,
+        "DELL": 0.009342291033188177,
+        "HPE": -0.003273307748657972
+      },
+      "spy_return": -0.00843940234692142,
+      "qqq_return": 0.00047271672029247647,
+      "basket_return": -0.003443177188984977,
+      "basket_excess_spy": 0.004996225157936443,
+      "basket_excess_qqq": -0.003915893909277454,
+      "catalyst_reaction": 0.039858058690434905
+    },
+    {
+      "catalyst": "BROADCOM",
+      "catalyst_ticker": "AVGO",
+      "label": "Q2 FY26",
+      "event_date": "2026-06-03",
+      "entry_date": "2026-06-04",
+      "exit_date": "2026-06-10",
+      "pending": false,
+      "per_ticker": {
+        "SMCI": -0.3530061892130858,
+        "DELL": -0.07971882688492993,
+        "HPE": -0.14159282927224737
+      },
+      "spy_return": -0.0354494392948993,
+      "qqq_return": -0.05682182726688445,
+      "basket_return": -0.1914392817900877,
+      "basket_excess_spy": -0.1559898424951884,
+      "basket_excess_qqq": -0.13461745452320326,
+      "catalyst_reaction": -0.1465595980254787
+    }
+  ],
+  "pending_events": [
+    {
+      "catalyst": "NVIDIA",
+      "catalyst_ticker": "NVDA",
+      "label": "Q2 FY27",
+      "event_date": "2026-08-26",
+      "entry_date": "2026-08-27",
+      "exit_date": null,
+      "pending": true
+    }
+  ]
+}

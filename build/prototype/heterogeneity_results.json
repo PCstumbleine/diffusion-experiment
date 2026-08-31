@@ -1,0 +1,64 @@
+{
+  "chi2_test": {
+    "chi2": 1.5927777777777776,
+    "dof": 2,
+    "p": 0.45095447411429146
+  },
+  "exact_conditional_mc": {
+    "chi2": 1.5927777777777776,
+    "p": 0.48129,
+    "n_perm": 100000
+  },
+  "anova": {
+    "F": 0.4757080304462543,
+    "p": 0.6246037379632626
+  },
+  "welch_anova": {
+    "F": 0.5062062528745813,
+    "df1": 2.0,
+    "df2": 29.012096981594485,
+    "p": 0.6080037947764911
+  },
+  "kruskal_wallis": {
+    "H": 1.0259530141843811,
+    "p": 0.598710856899477
+  },
+  "permutation_f_test": {
+    "F": 0.47570803044625404,
+    "p": 0.62895,
+    "n_perm": 100000
+  },
+  "leave_one_catalyst_out": {
+    "NVIDIA": {
+      "wins": 22,
+      "n": 32,
+      "p": 0.050102459732443094
+    },
+    "AMD": {
+      "wins": 18,
+      "n": 31,
+      "p": 0.47312965989112854
+    },
+    "BROADCOM": {
+      "wins": 20,
+      "n": 31,
+      "p": 0.14961278438568115
+    }
+  },
+  "excess_return_contribution": {
+    "NVIDIA": {
+      "sum_excess": 0.22672313930225052,
+      "share_pct": 37.48225112088784
+    },
+    "AMD": {
+      "sum_excess": 0.3760470733875873,
+      "share_pct": 62.16873531906222
+    },
+    "BROADCOM": {
+      "sum_excess": 0.0021111178658499846,
+      "share_pct": 0.3490135600499621
+    }
+  },
+  "cross_catalyst_unique_pairs": 736,
+  "conclusion": "None of the formal heterogeneity tests (chi-square, exact-conditional, ANOVA, Welch ANOVA, Kruskal-Wallis, permutation F-test) reject the null of no difference across catalysts (all p > 0.45). The v7 README's claim that 'the three catalysts do NOT behave alike' is a real descriptive pattern -- AMD's own sign-test p-value is smaller, and it contributes ~62% of the pooled summed excess return vs NVIDIA's ~37% and Broadcom's ~0.3% -- but it is not a statistically established difference in effects at this sample size. Corrected framing: the pooled result should not be read as evidence of a common cross-catalyst mechanism, AND it should not be read as evidence that the catalysts are confirmed to differ either -- the honest state is that this sample cannot distinguish a common weak effect from a catalyst-specific (plausibly AMD-specific) effect from pure noise."
+}

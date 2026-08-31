@@ -49,12 +49,20 @@ def list_pending(conn) -> None:
 
 
 def _write_backfilled_relationships(conn, mention: dict, newly_resolved_entity_id: str) -> int:
-    """Scans the mention's own extraction run's raw_llm_output for any
-    relationship naming this mention's raw_name, and writes it now if the
-    OTHER side is also resolvable. Returns the count written."""
+    """Scans the mention's own extraction run's CLEANED (validated) output
+    for any relationship naming this mention's raw_name, and writes it now
+    if the OTHER side is also resolvable. Returns the count written.
+
+    Deliberately reads cleaned_llm_output, not raw_llm_output: since a
+    code review split those two apart (extraction_runs now keeps the true
+    raw provider response separately from the post-validation result),
+    reading the raw one here would let a relationship whose evidence_span
+    or relationship_type failed validation get backfilled anyway --
+    resurrecting exactly the kind of claim validate_extraction_output
+    exists to drop."""
     with conn.cursor() as cur:
         cur.execute(
-            "SELECT raw_llm_output FROM extraction_runs WHERE extraction_run_id = %s",
+            "SELECT cleaned_llm_output FROM extraction_runs WHERE extraction_run_id = %s",
             (mention["extraction_run_id"],),
         )
         raw_output = cur.fetchone()[0]

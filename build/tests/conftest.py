@@ -79,18 +79,20 @@ def make_extraction_run(conn, document_id=None, status="success", raw_llm_output
     if status == "failed" and error is None:
         error = "test failure"
     run_id = str(uuid.uuid4())
+    cleaned_llm_output = raw_llm_output if status == "success" else None
     with conn.cursor() as cur:
         cur.execute(
             """
             INSERT INTO extraction_runs (
                 extraction_run_id, document_id, extraction_prompt_version,
                 extractor_model_id, extractor_model_version, status,
-                raw_llm_output, error, completed_at
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, now())
+                raw_llm_output, cleaned_llm_output, error, completed_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, now())
             """,
             (run_id, document_id, extraction_prompt_version, extractor_model_id,
              extractor_model_version, status,
              psycopg2.extras.Json(raw_llm_output) if raw_llm_output is not None else None,
+             psycopg2.extras.Json(cleaned_llm_output) if cleaned_llm_output is not None else None,
              error),
         )
     return run_id

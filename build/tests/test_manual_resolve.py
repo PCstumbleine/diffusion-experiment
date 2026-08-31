@@ -35,8 +35,13 @@ def _log_a_relationship_mention(conn, issuer_id, counterparty_raw_name, document
         }],
     }
     with conn.cursor() as cur:
-        cur.execute("UPDATE extraction_runs SET raw_llm_output = %s WHERE extraction_run_id = %s",
-                    (psycopg2.extras.Json(raw_output), extraction_run_id))
+        # manual_resolve.py reads cleaned_llm_output, not raw_llm_output --
+        # see its own docstring for why. This fixture already represents
+        # validated (post-cleaning) data, so it's written to both columns.
+        cur.execute(
+            "UPDATE extraction_runs SET raw_llm_output = %s, cleaned_llm_output = %s WHERE extraction_run_id = %s",
+            (psycopg2.extras.Json(raw_output), psycopg2.extras.Json(raw_output), extraction_run_id),
+        )
     resolve_entity_name(conn, counterparty_raw_name, document_id, extraction_run_id)
 
 

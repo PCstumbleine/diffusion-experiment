@@ -2,19 +2,24 @@
 Extraction-Runner Design v2, §6 testing strategy: catalyst-level
 canonicalization of a duplicate primary+exhibit event, nullable-surprise
 insertion, evidence-span verification, the decision_at timing rule,
-full-pipeline idempotency, and atomicity under a forced mid-batch failure.
+full-pipeline idempotency, and atomicity under a forced mid-batch failure --
+plus the coverage a pre-dry-run code review found missing: retry after a
+failed extraction, a genuine concurrent-claim race, a document_id mismatch,
+and an earlier event in a catalyst seeing a relationship a later event in
+the SAME catalyst discovers (the decision_at-ordering fix).
 
 Uses a stubbed LLM client (StubLLMClient below) -- never a real API call,
 same convention as edgar_ingest_worker.py's tests (make_client / MagicMock).
 """
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
+import psycopg2
 import pytest
 
-from conftest import make_entity, make_catalyst_with_documents
+from conftest import DB_DSN, make_entity, make_catalyst_with_documents, make_raw_document
 
 from extraction_runner import (
-    extract_document, process_catalyst, run_extraction_pass,
+    extract_document, claim_extraction_run, process_catalyst, run_extraction_pass,
     validate_extraction_output, classify_relationship_eligibility,
     generate_candidates_for_event_version, ExtractionValidationError,
 )
@@ -39,8 +44,11 @@ class StubLLMClient:
         return result
 
 
-def llm_output(events):
-    return {"document_id": "irrelevant", "extraction_prompt_version": PROMPT_VERSION, "events": events}
+def llm_output(document_id, events):
+    # A prior version hardcoded "irrelevant" here for every call -- which is
+    # exactly why validate_extraction_output's document_id check (added by
+    # a pre-dry-run code review) wasn't caught by any existing test.
+    return {"document_id": document_id, "extraction_prompt_version": PROMPT_VERSION, "events": events}
 
 
 def guidance_event(entity_name, evidence_span, observed=10_000_000_000, reference=9_000_000_000,
@@ -100,8 +108,8 @@ def test_duplicate_event_across_primary_and_exhibit_canonicalizes_to_one_event(c
     )
 
     outputs = {
-        doc_ids["primary"]: llm_output([guidance_event("NVIDIA", primary_span)]),
-        doc_ids["exhibit"]: llm_output([guidance_event("NVIDIA Corporation", exhibit_span)]),
+        doc_ids["primary"]: llm_output(doc_ids["primary"], [guidance_event("NVIDIA", primary_span)]),
+        doc_ids["exhibit"]: llm_output(doc_ids["exhibit"], [guidance_event("NVIDIA Corporation", exhibit_span)]),
     }
     result = process_full(conn, catalyst_id, outputs)
 
@@ -134,7 +142,7 @@ def test_distinct_events_in_the_same_catalyst_stay_separate(conn):
         conn, [("primary", "primary", f"{span_a} {span_b}")], issuer_entity_id=issuer_id,
     )
     outputs = {
-        doc_ids["primary"]: llm_output([
+        doc_ids["primary"]: llm_output(doc_ids["primary"], [
             guidance_event("NVIDIA", span_a, observed=10_000_000_000, reference=9_000_000_000),
             {**guidance_event("NVIDIA", span_b), "surprise": {
                 "surprise_type": "gross_margin_guidance", "observed_value": 75, "reference_value": 70,
@@ -166,7 +174,7 @@ def test_nullable_surprise_extraction_inserts_successfully(conn):
         "source_published_at": None,
         "explicit_correction": False,
     }
-    outputs = {doc_ids["primary"]: llm_output([event])}
+    outputs = {doc_ids["primary"]: llm_output(doc_ids["primary"], [event])}
     result = process_full(conn, catalyst_id, outputs)
 
     assert result["canonical_events_created"] == 1
@@ -202,7 +210,7 @@ def test_validate_extraction_output_drops_claim_with_bad_evidence_span():
             "explicit_correction": False,
         }],
     }
-    cleaned, drop_log = validate_extraction_output(output, raw_content, PROMPT_VERSION)
+    cleaned, drop_log = validate_extraction_output(output, raw_content, PROMPT_VERSION, "d1")
     assert len(cleaned["events"]) == 1
     names = {e["entity_name"] for e in cleaned["events"][0]["entities"]}
     assert names == {"Real Co"}  # the fabricated span was dropped, not paraphrased/kept
@@ -219,14 +227,24 @@ def test_validate_extraction_output_drops_whole_event_when_all_entities_have_bad
             "relationships": [], "surprise": None, "explicit_correction": False,
         }],
     }
-    cleaned, drop_log = validate_extraction_output(output, raw_content, PROMPT_VERSION)
+    cleaned, drop_log = validate_extraction_output(output, raw_content, PROMPT_VERSION, "d1")
     assert cleaned["events"] == []
 
 
 def test_validate_extraction_output_rejects_wrong_prompt_version():
     output = {"document_id": "d1", "extraction_prompt_version": "9.9.9", "events": []}
     with pytest.raises(ExtractionValidationError):
-        validate_extraction_output(output, "content", PROMPT_VERSION)
+        validate_extraction_output(output, "content", PROMPT_VERSION, "d1")
+
+
+def test_validate_extraction_output_rejects_document_id_mismatch():
+    """Code-review fix: only presence of document_id used to be checked,
+    never that it actually matches the document sent -- the test helper
+    that hid this gap (llm_output(), which used to hardcode "irrelevant")
+    is fixed above."""
+    output = {"document_id": "wrong-document-id", "extraction_prompt_version": PROMPT_VERSION, "events": []}
+    with pytest.raises(ExtractionValidationError):
+        validate_extraction_output(output, "content", PROMPT_VERSION, "the-real-document-id")
 
 
 def test_validate_extraction_output_drops_relationship_with_unmapped_type():
@@ -245,9 +263,67 @@ def test_validate_extraction_output_drops_relationship_with_unmapped_type():
             "surprise": None, "explicit_correction": False,
         }],
     }
-    cleaned, drop_log = validate_extraction_output(output, raw_content, PROMPT_VERSION)
+    cleaned, drop_log = validate_extraction_output(output, raw_content, PROMPT_VERSION, "d1")
     assert cleaned["events"][0]["relationships"] == []
     assert any("does not map to the closed vocabulary" in msg for msg in drop_log)
+
+
+# ---------------------------------------------------------------------------
+# Retry-after-failure and concurrent-claim races (code review fixes #1/#2)
+# ---------------------------------------------------------------------------
+
+def test_retry_after_failure_reuses_the_same_row_and_increments_attempt_count(conn):
+    """A prior version selected-then-inserted as two separate statements:
+    a retry of a 'failed' row hit the identity UNIQUE constraint on the
+    second INSERT -- a guaranteed uniqueness violation, not a rare edge
+    case. Now the SAME row is claimed and updated."""
+    raw_content = "Some real document text."
+    document_id = make_raw_document(conn, raw_content=raw_content)
+
+    failing_client = StubLLMClient({document_id: RuntimeError("simulated LLM failure")})
+    run_id_1 = extract_document(conn, failing_client, document_id, raw_content, PROMPT_VERSION, MODEL_ID, MODEL_VERSION)
+    with conn.cursor() as cur:
+        cur.execute("SELECT status, attempt_count FROM extraction_runs WHERE extraction_run_id = %s", (run_id_1,))
+        status, attempts = cur.fetchone()
+    assert status == "failed"
+    assert attempts == 1
+
+    working_output = llm_output(document_id, [guidance_event("Some Co", raw_content)])
+    working_client = StubLLMClient({document_id: working_output})
+    run_id_2 = extract_document(conn, working_client, document_id, raw_content, PROMPT_VERSION, MODEL_ID, MODEL_VERSION)
+
+    assert run_id_2 == run_id_1  # same row -- not a second INSERT under the same identity
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT status, attempt_count, error, raw_llm_output IS NOT NULL FROM extraction_runs "
+            "WHERE extraction_run_id = %s",
+            (run_id_1,),
+        )
+        status, attempts, error, has_output = cur.fetchone()
+    assert status == "success"
+    assert attempts == 2
+    assert error is None
+    assert has_output is True
+
+
+def test_claim_extraction_run_two_concurrent_callers_only_one_wins(conn):
+    """The exact race a prior check-then-insert design allowed: two
+    callers could both see 'no successful row yet' and both proceed to
+    pay for an LLM call. Uses TWO real, separate connections -- this is
+    coverage the existing idempotency test never provided (it only reruns
+    the same config sequentially, never actually races)."""
+    document_id = make_raw_document(conn, raw_content="text")
+    conn.commit()  # make it visible to the second connection
+
+    conn2 = psycopg2.connect(DB_DSN)
+    try:
+        run_id_1, claimed_1 = claim_extraction_run(conn, document_id, PROMPT_VERSION, MODEL_ID, MODEL_VERSION)
+        run_id_2, claimed_2 = claim_extraction_run(conn2, document_id, PROMPT_VERSION, MODEL_ID, MODEL_VERSION)
+    finally:
+        conn2.close()
+
+    assert run_id_1 == run_id_2  # both refer to the same row
+    assert claimed_1 is True and claimed_2 is False  # exactly one caller may proceed to call the LLM
 
 
 # ---------------------------------------------------------------------------
@@ -280,7 +356,7 @@ def test_classify_relationship_eligibility_passes_when_both_clocks_precede_decis
 
 
 def test_generate_candidates_marks_ineligible_for_late_observed_relationship(conn):
-    from conftest import make_raw_document, make_extraction_run
+    from conftest import make_extraction_run
 
     issuer_id = make_entity(conn, "Issuer Co")
     counterparty_id = make_entity(conn, "Counterparty Co")
@@ -331,6 +407,57 @@ def test_generate_candidates_marks_ineligible_for_late_observed_relationship(con
     assert row == ("ineligible", "system_observed_at_after_decision_at", "candidate_eligibility_v1")
 
 
+def test_earlier_event_sees_relationship_discovered_by_later_event_in_same_catalyst(conn):
+    """Code-review fix #4: decision_at used to be captured once at the top
+    of process_catalyst, and candidates were generated inside the same
+    loop that was still writing later events' relationships -- an earlier
+    event's candidate pool literally could not see a relationship a later
+    event in the SAME catalyst discovered. Now every relationship for the
+    whole catalyst is written before ANY candidate is generated."""
+    issuer_id = make_entity(conn, "Issuer Co")
+    counterparty_id = make_entity(conn, "Counterparty Co")
+    span_a = "Order win worth $500 million."
+    span_b = "Issuer Co supplies Counterparty Co under a long-term agreement."
+    catalyst_id, doc_ids = make_catalyst_with_documents(
+        conn, [("primary", "primary", f"{span_a} {span_b}")], issuer_entity_id=issuer_id,
+    )
+    order_event = {
+        "event_category": "order_win", "catalyst_description": "Order win",
+        "entities": [{"entity_name": "Issuer Co", "role": "issuer", "evidence_span": span_a}],
+        "relationships": [],
+        "surprise": None, "explicit_correction": False,
+    }
+    supply_event = {
+        "event_category": "supply_agreement", "catalyst_description": "Supply agreement",
+        "entities": [{"entity_name": "Issuer Co", "role": "issuer", "evidence_span": span_b}],
+        "relationships": [{
+            "entity_a": "Issuer Co", "entity_b": "Counterparty Co", "relationship_type": "supplier",
+            "relationship_evidence": "explicit_named", "source_authority": "company",
+            "document_explicitly_states_transmission_history": False,
+            "evidence_span": span_b,
+        }],
+        "surprise": None, "explicit_correction": False,
+    }
+    # order_event is listed FIRST (processed first) -- supply_event, listed
+    # second, is what discovers the relationship.
+    outputs = {doc_ids["primary"]: llm_output(doc_ids["primary"], [order_event, supply_event])}
+    result = process_full(conn, catalyst_id, outputs)
+
+    assert result["canonical_events_created"] == 2
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT ce.event_category FROM candidate_signals cs "
+            "JOIN event_versions ev ON ev.event_version_id = cs.event_version_id "
+            "JOIN canonical_events ce ON ce.canonical_event_id = ev.canonical_event_id "
+            "WHERE ce.catalyst_id = %s AND cs.entity_id = %s",
+            (catalyst_id, counterparty_id),
+        )
+        categories = {row[0] for row in cur.fetchall()}
+    # BOTH events' candidate pools include the counterparty -- including
+    # order_win, which never itself mentions any relationship.
+    assert categories == {"order_win", "supply_agreement"}
+
+
 # ---------------------------------------------------------------------------
 # Full-pipeline idempotency
 # ---------------------------------------------------------------------------
@@ -341,7 +468,7 @@ def test_full_pipeline_idempotency_on_rerun(conn):
     catalyst_id, doc_ids = make_catalyst_with_documents(
         conn, [("primary", "primary", span)], issuer_entity_id=issuer_id,
     )
-    outputs = {doc_ids["primary"]: llm_output([guidance_event("NVIDIA", span)])}
+    outputs = {doc_ids["primary"]: llm_output(doc_ids["primary"], [guidance_event("NVIDIA", span)])}
 
     process_full(conn, catalyst_id, outputs)
 
@@ -355,13 +482,14 @@ def test_full_pipeline_idempotency_on_rerun(conn):
 
     # Re-run the whole pipeline again over the SAME documents/catalyst/model
     # config -- extract_document should skip re-calling the LLM (already
-    # 'success'), and process_catalyst should no-op (already canonicalized).
+    # 'success'), and process_catalyst should no-op (already succeeded for
+    # this exact catalyst+config in catalyst_processing_runs).
     client = StubLLMClient(outputs)
     for document_id, raw_content in _docs_with_content(conn, outputs.keys()):
         extract_document(conn, client, document_id, raw_content, PROMPT_VERSION, MODEL_ID, MODEL_VERSION)
     result = process_catalyst(conn, catalyst_id, PROMPT_VERSION, MODEL_ID, MODEL_VERSION)
 
-    assert result == {"skipped": "already_done"}
+    assert result == {"skipped": "already_done_or_in_progress"}
     assert client.calls == []  # the LLM was never called again
     second = counts()
     assert first == second
@@ -383,7 +511,7 @@ def test_forced_failure_partway_through_catalyst_batch_leaves_no_partial_rows(co
         "entities": [{"entity_name": "NVIDIA", "role": "issuer", "evidence_span": span_b}],
         "relationships": [], "surprise": None, "explicit_correction": False,
     }
-    outputs = {doc_ids["primary"]: llm_output([guidance_event("NVIDIA", span_a), order_event])}
+    outputs = {doc_ids["primary"]: llm_output(doc_ids["primary"], [guidance_event("NVIDIA", span_a), order_event])}
 
     client = StubLLMClient(outputs)
     for document_id, raw_content in _docs_with_content(conn, outputs.keys()):
@@ -403,13 +531,16 @@ def test_forced_failure_partway_through_catalyst_batch_leaves_no_partial_rows(co
 
     with pytest.raises(RuntimeError):
         process_catalyst(conn, catalyst_id, PROMPT_VERSION, MODEL_ID, MODEL_VERSION)
-    conn.rollback()
 
     with conn.cursor() as cur:
         cur.execute("SELECT count(*) FROM canonical_events WHERE catalyst_id = %s", (catalyst_id,))
         assert cur.fetchone()[0] == 0  # NEITHER event's rows survived, not just the second one
-        cur.execute("SELECT canonicalization_completed_at FROM catalysts WHERE catalyst_id = %s", (catalyst_id,))
-        assert cur.fetchone()[0] is None
+        cur.execute(
+            "SELECT status FROM catalyst_processing_runs WHERE catalyst_id = %s "
+            "AND extraction_prompt_version = %s AND extractor_model_id = %s AND extractor_model_version = %s",
+            (catalyst_id, PROMPT_VERSION, MODEL_ID, MODEL_VERSION),
+        )
+        assert cur.fetchone()[0] == "failed"  # the claim itself is reclaimable, not stuck at 'pending'
 
     # And a clean retry afterward succeeds completely.
     result = process_catalyst(conn, catalyst_id, PROMPT_VERSION, MODEL_ID, MODEL_VERSION)

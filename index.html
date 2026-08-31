@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Diffusion Experiment — Progress Journal</title>
+<style>
+  :root {
+    --surface-1: #fcfcfb;
+    --page: #f9f9f7;
+    --ink: #0b0b0b;
+    --ink-2: #52514e;
+    --muted: #898781;
+    --grid: #e1e0d9;
+    --border: rgba(11,11,11,0.10);
+    --blue: #2a78d6;
+    --orange: #eb6834;
+    --aqua: #1baf7a;
+    --good: #0ca30c;
+    --warning: #fab219;
+    --critical: #d03b3b;
+    --card-radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.55;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 48px 20px 80px; }
+  header.hero { margin-bottom: 40px; }
+  .eyebrow {
+    font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 10px;
+  }
+  h1 { font-size: 34px; line-height: 1.2; margin: 0 0 16px; font-weight: 800; }
+  .lede { font-size: 18px; color: var(--ink-2); margin: 0; }
+  h2 { font-size: 22px; margin: 0 0 14px; font-weight: 800; }
+  h3 { font-size: 17px; margin: 0 0 8px; font-weight: 700; }
+  section { margin-bottom: 48px; }
+  p { margin: 0 0 14px; font-size: 16px; }
+  .card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--card-radius);
+    padding: 24px;
+  }
+  .callout {
+    border-radius: var(--card-radius);
+    padding: 22px 24px;
+    border: 1px solid var(--border);
+  }
+  .callout.bottom-line { background: #fff7ed; border-color: rgba(235,104,52,0.25); }
+  .callout.bottom-line h3 { color: #9a3f12; }
+  .timeline { list-style: none; margin: 0; padding: 0; }
+  .timeline li {
+    position: relative;
+    padding: 0 0 26px 30px;
+    border-left: 2px solid var(--grid);
+    margin-left: 6px;
+  }
+  .timeline li:last-child { border-left-color: transparent; padding-bottom: 0; }
+  .timeline li::before {
+    content: "";
+    position: absolute; left: -7px; top: 2px;
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--blue); border: 2px solid var(--surface-1); box-shadow: 0 0 0 1px var(--grid);
+  }
+  .timeline li.flag::before { background: var(--warning); }
+  .timeline .tag {
+    display: inline-block; font-size: 12px; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 4px;
+  }
+  .timeline p { font-size: 15px; margin-bottom: 0; color: var(--ink-2); }
+  figure { margin: 0; }
+  figure img { width: 100%; height: auto; border-radius: var(--card-radius); border: 1px solid var(--border); display: block; }
+  figcaption { font-size: 14px; color: var(--muted); margin-top: 10px; }
+  .legend-row { display: flex; gap: 20px; flex-wrap: wrap; margin: 14px 0 0; font-size: 14px; color: var(--ink-2); }
+  .legend-row .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+  .bars { display: flex; flex-direction: column; gap: 18px; margin: 20px 0 6px; }
+  .bar-row { display: grid; grid-template-columns: 110px 1fr 56px; align-items: center; gap: 12px; }
+  .bar-label { font-size: 14px; font-weight: 700; }
+  .bar-track { position: relative; background: var(--grid); border-radius: 6px; height: 24px; overflow: visible; }
+  .bar-fill { height: 24px; border-radius: 4px 6px 6px 4px; }
+  .bar-fill.nvidia { background: var(--blue); }
+  .bar-fill.amd { background: var(--orange); }
+  .bar-fill.broadcom { background: var(--aqua); }
+  .coin-flip-line {
+    position: absolute; top: -6px; bottom: -6px; left: 50%;
+    border-left: 2px dashed var(--muted);
+  }
+  .bar-value { font-size: 14px; font-weight: 700; text-align: right; }
+  .coin-flip-caption { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 18px 0 0; }
+  .stat-tile { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .stat-tile .label { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+  .stat-tile .value { font-size: 24px; font-weight: 800; }
+  footer { border-top: 1px solid var(--grid); padding-top: 24px; margin-top: 56px; font-size: 14px; color: var(--muted); }
+  footer a { color: var(--blue); }
+  a { color: var(--blue); }
+  .glossary { font-size: 15px; color: var(--ink-2); }
+  .glossary dt { font-weight: 700; color: var(--ink); margin-top: 10px; }
+  .glossary dd { margin: 2px 0 0; }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --surface-1: #1a1a19; --page: #0d0d0d; --ink: #ffffff; --ink-2: #c3c2b7;
+      --muted: #898781; --grid: #2c2c2a; --border: rgba(255,255,255,0.10);
+      --blue: #3987e5; --orange: #d95926; --aqua: #199e70;
+    }
+    .callout.bottom-line { background: #2a1c10; border-color: rgba(217,89,38,0.35); }
+    .callout.bottom-line h3 { color: #f0b48c; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="eyebrow">The Diffusion Experiment · Progress Journal</div>
+    <h1>Can a computer catch stock-market ripple effects before everyone else notices?</h1>
+    <p class="lede">This page tracks an ongoing test of that question — in plain language, updated as the project moves forward. No finance background needed to follow along, and we're being upfront when the answer is "not yet" or "we're not sure."</p>
+  </header>
+
+  <section>
+    <h2>The idea, in plain English</h2>
+    <p>When a big company like NVIDIA reports its earnings, that news doesn't just affect NVIDIA's own stock. Other companies that build products around NVIDIA's chips — companies like Dell, HPE, or Supermicro — sometimes see their own stock react too, sometimes a little later, once investors connect the dots between "NVIDIA had a great quarter" and "the companies that build servers with NVIDIA's chips will probably do well too."</p>
+    <p>The bet we're testing: if a system could read that news the moment it's published and act faster than most investors get around to it, could it reliably catch that short delay before the market fully catches up? That's the whole idea. Nothing more exotic than that.</p>
+  </section>
+
+  <section>
+    <h2>What we've done so far</h2>
+    <ul class="timeline">
+      <li>
+        <div class="tag">Getting started</div>
+        <p>We started small on purpose: watched one company's earnings (NVIDIA) and one company downstream of it (Supermicro), across just 4 earnings reports. Small enough to check every number by hand.</p>
+      </li>
+      <li class="flag">
+        <div class="tag">Caught a mistake</div>
+        <p>A math mistake turned up in how we compared our approach against "just investing in the stock market as a whole" — we were accidentally giving our approach an unfair advantage. We found it, fixed it, and re-checked the numbers by hand to make sure the fix was right.</p>
+      </li>
+      <li>
+        <div class="tag">Widened the test</div>
+        <p>Instead of watching one downstream company, we watched three together (Supermicro, Dell, and HPE), and added a second market comparison for fairness.</p>
+      </li>
+      <li>
+        <div class="tag">Widened it further</div>
+        <p>Most recently: instead of only watching NVIDIA, we added two more computer-chip companies (AMD and Broadcom) and stretched the test back four years — 47 "earnings report day" events in total, instead of just 4.</p>
+      </li>
+      <li class="flag">
+        <div class="tag">An honest, important finding</div>
+        <p>When we broke the results down by company, the pattern only really showed up for AMD. For NVIDIA — the company this whole idea was originally built around — there was <strong>no pattern at all</strong>. That's a real problem for the idea, not a small footnote, and we're reporting it exactly like that.</p>
+      </li>
+      <li class="flag">
+        <div class="tag">Double-checked our own math</div>
+        <p>We ran the numbers past a second, independent AI reviewer as a standard check. It caught that we'd been overstating how confident we could be that AMD was genuinely "different" from the other two companies — the honest answer is we can't prove that yet, mathematically. We corrected the write-up rather than keeping the stronger-sounding claim.</p>
+      </li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>What the numbers actually look like</h2>
+    <figure>
+      <img src="growth_chart.png" alt="Line chart showing the value of $1 invested in 2022, comparing the trading idea's approach against simply buying and holding the S&P 500 index. The trading idea reaches about $1.70 by 2026; the S&P 500 reaches about $1.98.">
+      <figcaption>Both lines start at $1 in mid-2022. The orange line is what happens if you'd simply bought a broad market index fund (the S&P 500) and never touched it again. The blue line is what our trading idea would have produced, only being "in the market" for the 5 trading days after each of the 47 earnings events.</figcaption>
+    </figure>
+    <div class="stat-grid">
+      <div class="stat-tile"><div class="label">Our idea, after ~4 years</div><div class="value">$1.70</div></div>
+      <div class="stat-tile"><div class="label">Just holding the S&amp;P 500</div><div class="value">$1.98</div></div>
+    </div>
+    <p style="margin-top:16px;">Despite some promising-looking stretches along the way, simply doing nothing beyond holding a broad market index fund still came out ahead over this period. Important caveat: this is a look backward at data we already had — it tells us whether the idea would have worked in the past, not whether it will work going forward. That's exactly why the next phase of this project (see below) is designed to test it forward instead.</p>
+  </section>
+
+  <section>
+    <h2>How sure are we about any of this?</h2>
+    <p>Here's a simple way to check: out of the times each company reported earnings, how often did our approach beat the market in the days right after? If our idea has no real effect at all, we'd expect that to land close to a coin flip — about 50%, purely by chance.</p>
+    <div class="bars">
+      <div class="bar-row">
+        <div class="bar-label">NVIDIA</div>
+        <div class="bar-track"><div class="bar-fill nvidia" style="width:53%"></div><div class="coin-flip-line"></div></div>
+        <div class="bar-value">53%</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">AMD</div>
+        <div class="bar-track"><div class="bar-fill amd" style="width:75%"></div><div class="coin-flip-line"></div></div>
+        <div class="bar-value">75%</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Broadcom</div>
+        <div class="bar-track"><div class="bar-fill broadcom" style="width:63%"></div><div class="coin-flip-line"></div></div>
+        <div class="bar-value">63%</div>
+      </div>
+    </div>
+    <p class="coin-flip-caption">The dashed line marks 50% — a coin flip. NVIDIA landed almost exactly on it (no better than chance). AMD and Broadcom landed higher, which looks encouraging at a glance.</p>
+    <p style="margin-top:14px;">But here's the honest part: when we ran the actual statistical test for whether these differences between companies are real or could just be luck from a small sample, <strong>the math said we can't tell yet.</strong> With only 15–16 earnings reports per company, a company "getting lucky" a handful of extra times isn't unusual — it's roughly what you'd expect sometimes even with pure chance. So this chart is genuinely what we found, but it is not proof that AMD is special.</p>
+  </section>
+
+  <section>
+    <div class="callout bottom-line">
+      <h3>The bottom line, today</h3>
+      <p style="margin-bottom:10px;">This is <strong>not</strong> a working trading strategy, and nothing here is being used to trade real money. Three things are true at once: the results so far are weak and inconsistent between companies; we genuinely can't yet tell a real pattern apart from chance; and even if a pattern is eventually confirmed, using it to trade real money is a much later, separate decision that this project has intentionally not reached yet.</p>
+      <p style="margin-bottom:0;">We're publishing this working-in-progress, imperfect version of the results on purpose, rather than waiting for a polished success story — because being honest about what doesn't work yet is the actual point of doing this carefully.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>What's next</h2>
+    <p><strong>The real test.</strong> Everything above looks backward at data we already had, which makes it easy to fool yourself. The next phase flips that around: build a system that reads company filings as they're published and makes a prediction in real time, before anyone knows whether it's right — then compare it, going forward, against a simple automatic baseline that doesn't use any AI at all. Only if the AI-based approach clearly and reliably beats that simple baseline, over a long enough stretch of real time, does this project even consider a further step toward real trading.</p>
+    <p><strong>A broader test.</strong> So far, every company in this test has been a computer-chip maker — which means any pattern we find might just be a quirk of that one industry, not something general. The next round widens the list of companies watched to include very different kinds of businesses (carmakers, homebuilders, retailers, airlines, and more), specifically so a good result can't just be an artifact of one industry's ups and downs.</p>
+  </section>
+
+  <section>
+    <h3>A few terms, explained</h3>
+    <dl class="glossary">
+      <dt>Backtest</dt>
+      <dd>Testing an idea against data from the past, to see what would have happened. Useful for a first sanity check, but it's not proof something will keep working — it's easy to accidentally tune an idea to fit old data.</dd>
+      <dt>Statistically inconclusive</dt>
+      <dd>The results aren't clearly telling us "yes, this works" or "no, it doesn't" — the sample is too small, or the pattern too weak, to rule out plain chance.</dd>
+      <dt>Benchmark (here, the S&amp;P 500)</dt>
+      <dd>What you're comparing an idea against — usually "what if I'd just invested in the broad stock market and done nothing special?"</dd>
+    </dl>
+  </section>
+
+  <footer>
+    <p>This project is developed in the open, with results checked independently before being reported here. Full technical detail — code, data, and the complete methodology — lives in the project's <a href="https://github.com/PCstumbleine/diffusion-experiment" target="_blank" rel="noopener">GitHub repository</a>. This page will be updated as the project moves from backtesting into real, forward-looking testing.</p>
+  </footer>
+
+</div>
+</body>
+</html>

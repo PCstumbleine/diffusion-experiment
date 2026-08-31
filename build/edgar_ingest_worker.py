@@ -194,6 +194,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import html
 import logging
 import re
 import sys
@@ -252,15 +253,19 @@ TYPE_FIELD_RE = re.compile(r"<TYPE>\s*([^\r\n<]+)", re.IGNORECASE)
 SEQUENCE_FIELD_RE = re.compile(r"<SEQUENCE>\s*(\d+)", re.IGNORECASE)
 FILENAME_FIELD_RE = re.compile(r"<FILENAME>\s*([^\r\n<]+)", re.IGNORECASE)
 
-# Watchlist: (cik, entity_id). cik as SEC's zero-padded 10-digit string.
-# entity_id must already exist in the entities table — this worker does not
-# create entities, to keep entity-identity management (Section 2) deliberate
-# rather than automatic.
-WATCHLIST: list[tuple[str, str]] = [
-    # ("0000320193", "<entity_id uuid for Apple in your entities table>"),
-]
-
 DB_DSN = "dbname=diffusion_experiment"
+
+
+def load_watchlist(conn) -> list[tuple[str, str]]:
+    """Resolves (cik, entity_id) pairs from watchlist_membership at startup
+    -- replaces the old hardcoded WATCHLIST list of hand-copied entity_id
+    UUIDs (Extraction-Runner Design v2, §1: "generated database IDs should
+    never need manual sync into source code"). Run build/seed_entities.py
+    first to populate watchlist_membership from
+    build/seed_data/watchlist_ciks.csv."""
+    with conn.cursor() as cur:
+        cur.execute("SELECT cik, entity_id FROM watchlist_membership")
+        return [(cik, str(entity_id)) for cik, entity_id in cur.fetchall()]
 
 POLL_INTERVAL_SECONDS = 15 * 60
 
@@ -425,7 +430,27 @@ def list_filing_documents(index_headers_text: str, primary_document: str) -> lis
     (fix #12). Raises FilingPackageParseError if no blocks parse at all, or
     if the submissions API's own primary_document isn't among them (fix
     #13) -- see that class's docstring for why that's failure, not "no
-    exhibits"."""
+    exhibits".
+
+    Fix #19 (found live while implementing the extraction-runner bridge,
+    2026-08-31): fetched directly against sec.gov rather than taken on
+    faith -- every "-index-headers.html" page serves its <DOCUMENT> block
+    HTML-entity-escaped (literally "&lt;DOCUMENT&gt;", "&lt;TYPE&gt;", ...)
+    inside a <PRE> tag, confirmed on two unrelated live filings (NVIDIA
+    0001045810-26-000073 and the new-CIK ExxonMobil Holdings Corp filing
+    0001193125-26-373026). The regexes below look for literal "<DOCUMENT>"
+    etc., which NEVER matches the real page -- every prior test fixture
+    (SAMPLE_INDEX_HEADERS_WITH_EXHIBITS and friends) used unescaped text
+    directly as a Python string literal, which is not what requests'
+    `.text` actually returns from this URL. Net effect as shipped through
+    v4: every real (non-dry-run) poll would raise FilingPackageParseError
+    on every single filing -- this worker could never have ingested
+    anything from a live run, despite three prior review rounds fetching
+    live filings and not catching it (they checked the URL and the
+    TYPE/SEQUENCE/FILENAME field NAMES against a live page, but not
+    whether the fetched bytes needed unescaping before the regexes could
+    see them at all). Fixed: unescape before parsing."""
+    index_headers_text = html.unescape(index_headers_text)
     entries: list[tuple[str, int, str]] = []  # (filename, sequence, edgar_type)
     for block_match in DOCUMENT_BLOCK_RE.finditer(index_headers_text):
         block = block_match.group(1)
@@ -765,18 +790,18 @@ def main():
                          help="Fetch filing metadata and log what would be ingested, but write nothing to the database.")
     args = parser.parse_args()
 
-    if not WATCHLIST:
-        log.error("WATCHLIST is empty — add (cik, entity_id) pairs before running.")
-        sys.exit(1)
-
     client = EdgarClient(USER_AGENT)
     conn = psycopg2.connect(DB_DSN)
     try:
+        watchlist = load_watchlist(conn)
+        if not watchlist:
+            log.error("watchlist_membership is empty — run build/seed_entities.py first.")
+            sys.exit(1)
         if args.once:
-            poll_once(conn, client, WATCHLIST, dry_run=args.dry_run)
+            poll_once(conn, client, watchlist, dry_run=args.dry_run)
         else:
             while True:
-                poll_once(conn, client, WATCHLIST, dry_run=args.dry_run)
+                poll_once(conn, client, watchlist, dry_run=args.dry_run)
                 time.sleep(POLL_INTERVAL_SECONDS)
     finally:
         conn.close()

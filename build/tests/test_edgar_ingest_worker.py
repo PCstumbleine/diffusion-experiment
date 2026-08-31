@@ -213,6 +213,31 @@ def test_list_filing_documents_type_field_may_contain_whitespace():
     assert {d.component_label for d in docs} == {"primary", "EX-99.1"}
 
 
+def test_list_filing_documents_handles_real_html_entity_escaped_page():
+    """Fix #19, found live while implementing the extraction-runner bridge
+    (2026-08-31): every real "-index-headers.html" page serves its
+    <DOCUMENT> block HTML-entity-escaped inside a <PRE> tag -- confirmed by
+    fetching two unrelated live filings directly (NVIDIA
+    0001045810-26-000073 and ExxonMobil Holdings Corp 0001193125-26-373026).
+    Every fixture above uses literal, UNESCAPED "<DOCUMENT>" text, which is
+    not what requests' `.text` actually returns from this URL -- as shipped
+    through v4 (four prior review rounds), every real poll would raise
+    FilingPackageParseError on every filing, silently blocking real
+    ingestion entirely despite passing every mocked test. This fixture is
+    the real escaped shape."""
+    headers = (
+        "<PRE>&lt;SEC-DOCUMENT&gt;0001045810-26-000073-index.html : 20260826\n"
+        "&lt;DOCUMENT&gt;\n&lt;TYPE&gt;8-K\n&lt;SEQUENCE&gt;1\n&lt;FILENAME&gt;primary.htm\n"
+        "&lt;DESCRIPTION&gt;8-K\n&lt;/DOCUMENT&gt;\n"
+        "&lt;DOCUMENT&gt;\n&lt;TYPE&gt;EX-99.1\n&lt;SEQUENCE&gt;2\n&lt;FILENAME&gt;ex991.htm\n"
+        "&lt;DESCRIPTION&gt;EX-99.1\n&lt;/DOCUMENT&gt;\n"
+        "</PRE>"
+    )
+    docs = list_filing_documents(headers, primary_document="primary.htm")
+    assert {d.component_label for d in docs} == {"primary", "EX-99.1"}
+    assert {d.filename for d in docs} == {"primary.htm", "ex991.htm"}
+
+
 def make_client(index_headers_text, document_texts: dict[str, str]):
     """document_texts maps filename -> fake body text."""
     client = MagicMock()

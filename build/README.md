@@ -6,10 +6,25 @@ and hoped to work.
 
 ## What's here
 
-- `schema.sql` — the database structure. Ran successfully against Postgres 16.
-  Includes a manual check (in the build log, not this folder) confirming the
-  most important fix — a relationship valid since 2022 but not publicly known
-  until 2026 correctly stays invisible to a 2024 query.
+- `schema.sql` — the original database structure. Ran successfully against
+  Postgres 16. Includes a manual check (in the build log, not this folder)
+  confirming the most important fix — a relationship valid since 2022 but
+  not publicly known until 2026 correctly stays invisible to a 2024 query.
+  As of the extraction-runner bridge, this is no longer the *only* schema
+  file — see `migrations/` below. Apply both, in order, on a fresh database:
+  ```
+  createdb diffusion_experiment
+  psql -d diffusion_experiment -f schema.sql
+  psql -d diffusion_experiment -f migrations/002_extraction_runner.sql
+  ```
+  `schema.sql` itself is treated as migration "001" retroactively (it was
+  never versioned before now); `migrations/002_extraction_runner.sql` is
+  the first real, numbered migration, adding `entity_aliases`,
+  `extraction_runs`, `unresolved_entity_mentions`, `watchlist_membership`,
+  a `catalysts.canonicalization_completed_at` idempotency flag, a nullable
+  `extracted_events.surprise_type` (the prompt's own `"surprise": null`
+  case was previously un-insertable), and a closed vocabulary + provenance
+  FK on `entity_relationships`.
 - `extraction_prompt_v1.md` — the prompt that reads a document and pulls out
   structured facts (event type, companies involved, raw numbers). Its JSON
   output schema was checked and parses correctly. It deliberately never
@@ -272,23 +287,102 @@ arm declares which model(s) it trusts (a new column on `experiment_arms`,
 most likely) rather than bolting on a trigger against today's schema, so
 it's flagged here rather than rushed.
 
+## The extraction-runner bridge (raw filing → LLM extraction → entity resolution → relationship write → candidate generation)
+
+Implements `docs/EXTRACTION_RUNNER_DESIGN_V2.md` end to end — previously
+`entity_relationships` and `candidate_signals` were only ever written to
+inside test fixtures; nothing connected a real filing to them. New files:
+
+- `entity_resolution.py` — normalizes a raw entity name and matches it
+  against `entities`/`entity_aliases`. No match (or an ambiguous one) is
+  logged to `unresolved_entity_mentions`, never guessed at, and never
+  creates an entity.
+- `seed_entities.py` — seeds the 108-company watchlist
+  (`seed_data/watchlist_ciks.csv`) into `entities`/`entity_aliases`/
+  `instruments`/`instrument_identifiers`/`watchlist_membership`. CIKs were
+  looked up against SEC's own `company_tickers.json` and cross-checked for
+  all 108 against each CIK's live submissions API record — not from
+  memory. Two real discrepancies turned up and were decided explicitly
+  (see the CSV's `note` column), not silently resolved: GPS (Gap Inc.)
+  renamed its ticker to GAP on NYSE; XOM (Exxon Mobil) moved to a brand
+  new CIK in 2026 (a holding-company reorganization) that now files under
+  the ticker.
+- `llm_client.py` — loads the exact system/task prompt text and JSON
+  schema straight out of `extraction_prompt_v1.md` (never hand-copied) and
+  calls the model. The real Anthropic-backed client is not exercised by
+  any test and is not wired to a live budget — standing up production LLM
+  spend is the still-open infrastructure fork, out of scope here.
+- `extraction_runner.py` — the two-phase pipeline: per-document extraction
+  + validation (§2b), then catalyst-level canonicalization once every
+  document in a catalyst reaches a terminal state (§2a), entity
+  resolution, append-only relationship writes (§4), and candidate
+  generation with the frozen `decision_at` timing rule (§5/§5a). See the
+  module's own docstring for two things the design doc left unspecified
+  that had to be resolved during implementation: how an LLM's free-text
+  `relationship_type` maps onto the new closed vocabulary, and that
+  `event_versions.version_number` cannot yet follow a real correction
+  chain (no field anywhere identifies which prior disclosure a correction
+  refers to).
+- `manual_resolve.py` — a small CLI for clearing the
+  `unresolved_entity_mentions` queue by hand (list / resolve to an
+  existing entity / resolve by creating a new one). Applies the backfill
+  rule from §3 exactly: the relationship is written at resolution time,
+  with `system_observed_at` set to the real resolution timestamp, never
+  backdated.
+- `migrations/002_extraction_runner.sql` — see above.
+- 23 new tests (`tests/test_entity_resolution.py`,
+  `tests/test_extraction_runner.py`, `tests/test_manual_resolve.py`, plus
+  one more added to `tests/test_edgar_ingest_worker.py` for the live bug
+  below) covering duplicate-event canonicalization, nullable-surprise
+  insertion, exact/alias/ambiguous/no-match resolution (with an explicit
+  assertion that a no-match never creates an entity), evidence-span
+  verification, the `decision_at` timing rule, full-pipeline idempotency,
+  and atomicity under a forced mid-batch failure — bringing the suite to
+  75 tests total, all passing.
+
+**A live bug found while wiring this up, not in the design doc:** every
+real `-index-headers.html` page `edgar_ingest_worker.py` fetches serves
+its `<DOCUMENT>` blocks **HTML-entity-escaped** (literally
+`&lt;DOCUMENT&gt;`) inside a `<PRE>` tag — confirmed by fetching two
+unrelated live filings directly (NVIDIA and the new-CIK ExxonMobil
+Holdings Corp). Every existing test fixture used literal, unescaped
+`<DOCUMENT>` text, which is not what `requests`' `.text` actually returns
+from this URL. As shipped through this file's fourth revision (four prior
+review rounds, three of which fetched live filings), **every real,
+non-dry-run poll would have raised `FilingPackageParseError` on every
+single filing** — this worker could never have ingested anything from a
+live run, despite passing every mocked test. Fixed by unescaping the
+fetched text before parsing; verified against live NVIDIA filings going
+back to 2020 (`--dry-run` correctly listed primary+exhibit documents for
+all of them, and a real non-dry-run ingest of NVIDIA's most recent 8-K
+round-tripped cleanly into `raw_documents` and was picked up by
+`extraction_runner.select_unprocessed_documents`).
+
 ## How to actually run this yourself
 
 You'll need Postgres installed and running, and Python with `psycopg2-binary`,
-`requests`, and (for tests) `pytest` installed (`pip install psycopg2-binary
-requests pytest`).
+`requests`, `numpy`, `scipy`, and (for tests) `pytest` installed
+(`pip install psycopg2-binary requests numpy scipy pytest`; add `anthropic`
+too if you're going to run `extraction_runner.py` against a real LLM).
 
 ```
 createdb diffusion_experiment
 psql -d diffusion_experiment -f schema.sql
+psql -d diffusion_experiment -f migrations/002_extraction_runner.sql
+python3 seed_entities.py
 cd tests && python3 -m pytest -v
 ```
 
-Before running `edgar_ingest_worker.py` for real: open it and (1) replace the
+Before running `edgar_ingest_worker.py` for real: open it and replace the
 placeholder email in `USER_AGENT` with your real contact info — SEC requires
-this, it's not optional — and (2) fill in `WATCHLIST` with the companies
-(by CIK) you want to track, each paired with that company's `entity_id`
-from your `entities` table.
+this, it's not optional. The watchlist itself no longer needs hand-editing:
+`seed_entities.py` (above) populates `watchlist_membership`, and the worker
+resolves `cik -> entity_id` from the database at startup.
+
+Before running `extraction_runner.py` for real: it needs `ANTHROPIC_API_KEY`
+set and an actual LLM budget — standing that up is the still-open
+infrastructure fork (see `docs/CANDIDATE_UNIVERSE_V1.md`'s "what's still
+not decided"), not something this bridge does on its own.
 
 ## The statistical test (Section 8), and a real finding from testing it
 
@@ -327,8 +421,15 @@ guarantee that.
 
 ## What's not built yet
 
-The extraction prompt exists but isn't wired up to an actual LLM API call
-yet — that's the next piece (send a document's text through the prompt,
-parse the JSON response, insert into `extracted_events`). The underreaction
-estimator's math (Section 4) isn't implemented as code yet — that comes
-after there's real data flowing through the pipeline to test it against.
+The extraction runner (above) now sends a document's text through the
+prompt, validates the response, and writes `extracted_events` through
+`candidate_signals` — but it has never been pointed at a real, paid LLM
+call (no API budget exists yet — see the infrastructure fork). Two
+narrower gaps flagged during that build, not silently dropped:
+`event_versions.version_number` doesn't yet follow a real correction
+chain (see `extraction_runner.py`'s module docstring), and
+`event_versions.first_executable_at` is left `NULL` — implementing the
+spec's regular-session trading-time rule wasn't asked for as part of this
+bridge. The underreaction estimator's math (Section 4) isn't implemented
+as code yet — that comes after there's real data flowing through the
+pipeline to test it against.

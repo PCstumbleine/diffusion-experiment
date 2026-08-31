@@ -11,20 +11,24 @@ and hoped to work.
   confirming the most important fix — a relationship valid since 2022 but
   not publicly known until 2026 correctly stays invisible to a 2024 query.
   As of the extraction-runner bridge, this is no longer the *only* schema
-  file — see `migrations/` below. Apply both, in order, on a fresh database:
+  file — see `migrations/` below. Apply all three, in order, on a fresh
+  database:
   ```
   createdb diffusion_experiment
   psql -d diffusion_experiment -f schema.sql
   psql -d diffusion_experiment -f migrations/002_extraction_runner.sql
+  psql -d diffusion_experiment -f migrations/003_extraction_runner_fixes.sql
   ```
   `schema.sql` itself is treated as migration "001" retroactively (it was
   never versioned before now); `migrations/002_extraction_runner.sql` is
   the first real, numbered migration, adding `entity_aliases`,
   `extraction_runs`, `unresolved_entity_mentions`, `watchlist_membership`,
-  a `catalysts.canonicalization_completed_at` idempotency flag, a nullable
-  `extracted_events.surprise_type` (the prompt's own `"surprise": null`
-  case was previously un-insertable), and a closed vocabulary + provenance
-  FK on `entity_relationships`.
+  a nullable `extracted_events.surprise_type` (the prompt's own
+  `"surprise": null` case was previously un-insertable), and a closed
+  vocabulary + provenance FK on `entity_relationships`.
+  `migrations/003_extraction_runner_fixes.sql` came from an adversarial
+  code review of migration 002 + the runner before the first live dry
+  run — see "A pre-dry-run code review" below.
 - `extraction_prompt_v1.md` — the prompt that reads a document and pulls out
   structured facts (event type, companies involved, raw numbers). Its JSON
   output schema was checked and parses correctly. It deliberately never
@@ -329,16 +333,19 @@ inside test fixtures; nothing connected a real filing to them. New files:
   rule from §3 exactly: the relationship is written at resolution time,
   with `system_observed_at` set to the real resolution timestamp, never
   backdated.
-- `migrations/002_extraction_runner.sql` — see above.
-- 23 new tests (`tests/test_entity_resolution.py`,
+- `migrations/002_extraction_runner.sql`, `migrations/003_extraction_runner_fixes.sql` — see above.
+- 27 new tests (`tests/test_entity_resolution.py`,
   `tests/test_extraction_runner.py`, `tests/test_manual_resolve.py`, plus
   one more added to `tests/test_edgar_ingest_worker.py` for the live bug
   below) covering duplicate-event canonicalization, nullable-surprise
   insertion, exact/alias/ambiguous/no-match resolution (with an explicit
   assertion that a no-match never creates an entity), evidence-span
-  verification, the `decision_at` timing rule, full-pipeline idempotency,
-  and atomicity under a forced mid-batch failure — bringing the suite to
-  75 tests total, all passing.
+  verification, a document_id mismatch, the `decision_at` timing rule (at
+  both the unit and integration level, including an earlier event seeing a
+  relationship a later event in the same catalyst discovers), retry after
+  a failed extraction, a genuine two-connection concurrent-claim race,
+  full-pipeline idempotency, and atomicity under a forced mid-batch
+  failure — bringing the suite to 79 tests total, all passing.
 
 **A live bug found while wiring this up, not in the design doc:** every
 real `-index-headers.html` page `edgar_ingest_worker.py` fetches serves
@@ -358,17 +365,100 @@ all of them, and a real non-dry-run ingest of NVIDIA's most recent 8-K
 round-tripped cleanly into `raw_documents` and was picked up by
 `extraction_runner.select_unprocessed_documents`).
 
+## A pre-dry-run code review — six real bugs, before the first live LLM call
+
+Before pointing the runner at a real (paid, read-only-against-EDGAR) LLM
+call for the first time, an adversarial review of the extraction-runner
+bridge (not another design round — the design itself was already locked
+in) found six real bugs, each independently traced against the actual
+code before being accepted. `migrations/003_extraction_runner_fixes.sql`
+carries the schema side of these; `extraction_runner.py`'s own module
+docstring has the full narrative.
+
+1. **`extraction_runs` retry was structurally broken.** The identity
+   `UNIQUE` constraint allows exactly one row per (document, prompt
+   version, model), but a retry of a `'failed'` row tried to `INSERT` a
+   second one — a guaranteed uniqueness violation on every retry, not a
+   rare edge case. Fixed: `claim_extraction_run()` makes the row a real
+   claim-then-update state machine (`'pending'` → `'success'`/`'failed'`,
+   with a `'failed'` or stale `'pending'` row reclaimable), so a retry
+   `UPDATE`s the same row instead of inserting a new one.
+2. **The same gap let two callers both pay for the same LLM call.** The
+   old "does a successful row exist" check and the eventual `INSERT` were
+   two separate statements with the (real-money) LLM call in between.
+   Fixed by the same atomic claim as #1 — confirmed with a test using two
+   genuinely separate database connections racing to claim the same
+   document, not just a sequential rerun (which is all the existing
+   idempotency test ever covered).
+3. **`process_catalyst`'s idempotency flag wasn't config-aware.**
+   `catalysts.canonicalization_completed_at` was one column with no
+   memory of which prompt/model config produced it — reprocessing the
+   same catalyst under a new config would see it already set and silently
+   no-op, contradicting the design doc's own "reprocessing creates new
+   downstream data" requirement. Fixed: replaced with
+   `catalyst_processing_runs`, keyed by (catalyst, prompt version, model
+   config), using the identical claim-then-update pattern as #1 — which
+   also closes the equivalent race for two overlapping calls processing
+   the same catalyst+config at once.
+4. **`decision_at` was frozen too early, and candidates were generated
+   too early.** It used to be captured once at the very top of
+   `process_catalyst`, before any relationship had been written, with
+   candidates generated for each event inside the same loop that was
+   still writing LATER events' relationships — so an earlier event in a
+   multi-event catalyst could not see a relationship a later event in the
+   SAME catalyst discovered. This was a real completeness gap in
+   candidate generation, not a timestamp technicality. Fixed:
+   `_do_process_catalyst()` now writes every relationship for every event
+   in the catalyst first, only then freezes `decision_at`, only then
+   generates candidates for every event version.
+5. **The real LLM call wasn't actually constrained by the JSON schema.**
+   `llm_client.py` loaded the schema from `extraction_prompt_v1.md` but
+   never gave it to the API call — enforcement was a text instruction
+   ("Return ONLY valid JSON"), nothing more. Fixed: the Anthropic call now
+   forces a tool call whose `input_schema` IS the loaded schema (Claude's
+   actual structured-output mechanism), and `extraction_runner.py`
+   additionally runs a real JSON Schema validator (`jsonschema.validate`)
+   against the raw response before its own hand-rolled per-claim checks
+   run as a second pass.
+6. **Two smaller, real gaps in the same code:** `validate_extraction_
+   output()` checked that `document_id` was *present* but never that it
+   *matched* the document actually sent (the test helper hiding this,
+   which hardcoded a placeholder for every call, is fixed too, with a new
+   negative test); and `extraction_runs.raw_llm_output` was storing the
+   *cleaned* (post-validation) output rather than the true raw provider
+   response the schema's own comment calls for. Fixed: `raw_llm_output` is
+   now the true raw response, `cleaned_llm_output` and `validation_drop_log`
+   hold the validated result and what was dropped and why, and
+   `extracted_events` now carries its own `extraction_run_id` so the full
+   audit trail is reachable from an `extracted_events` row rather than
+   just its own single event object. (`manual_resolve.py` was updated to
+   read `cleaned_llm_output`, not `raw_llm_output`, for the same reason —
+   backfilling a relationship from unvalidated raw text would resurrect
+   exactly the kind of claim validation exists to drop.)
+
+**Explicitly deferred, not fixed in this round:** relationship
+directionality (the LLM's `entity_a`/`entity_b` order is taken as-is, with
+no ordering contract enforced) needs a prompt change, not a quick patch,
+and doesn't affect a first mechanics-only dry run; the §3a
+U.S.-tradable admission rule in `manual_resolve.py`, alias-learning on
+manual resolution, and `normalize_entity_name`'s legal-suffix edge cases
+aren't exercised until manual resolution actually happens; and
+`first_executable_at` staying `NULL` only matters at the trade-execution
+stage.
+
 ## How to actually run this yourself
 
 You'll need Postgres installed and running, and Python with `psycopg2-binary`,
-`requests`, `numpy`, `scipy`, and (for tests) `pytest` installed
-(`pip install psycopg2-binary requests numpy scipy pytest`; add `anthropic`
-too if you're going to run `extraction_runner.py` against a real LLM).
+`requests`, `numpy`, `scipy`, `jsonschema`, and (for tests) `pytest` installed
+(`pip install psycopg2-binary requests numpy scipy jsonschema pytest`; add
+`anthropic` too if you're going to run `extraction_runner.py` against a
+real LLM).
 
 ```
 createdb diffusion_experiment
 psql -d diffusion_experiment -f schema.sql
 psql -d diffusion_experiment -f migrations/002_extraction_runner.sql
+psql -d diffusion_experiment -f migrations/003_extraction_runner_fixes.sql
 python3 seed_entities.py
 cd tests && python3 -m pytest -v
 ```

@@ -1,0 +1,30 @@
+{
+  "document_id": "850832f9-b1f7-45ad-95bd-71e332131b1e",
+  "extraction_prompt_version": "1.1.0",
+  "events": [
+    {
+      "event_category": "earnings_surprise",
+      "catalyst_description": "CFO commentary restating NVIDIA's Q2 FY2027 revenue of $96.2 billion, up 106% year-over-year.",
+      "entities": [
+        {
+          "entity_name": "NVIDIA Corporation",
+          "role": "issuer",
+          "evidence_span": "NVIDIA CORPORATION "
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "revenue_yoy_change",
+        "observed_value": 96.2,
+        "reference_value": null,
+        "reference_source": "NVIDIA's own prior-year quarter (Q2 FY2026) results, as restated in this same document",
+        "reference_timestamp": "2025-08-27",
+        "unit": "USD_billions",
+        "period": "Q2 FY2027",
+        "evidence_span": "Revenue for the second quarter was a record $96.2 billion, up 106% from a year ago and up 18% sequentially."
+      },
+      "source_published_at": "2026-08-26",
+      "explicit_correction": false
+    }
+  ]
+}

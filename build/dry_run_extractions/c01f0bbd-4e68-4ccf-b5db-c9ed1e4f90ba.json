@@ -1,0 +1,21 @@
+{
+  "document_id": "c01f0bbd-4e68-4ccf-b5db-c9ed1e4f90ba",
+  "extraction_prompt_version": "1.1.0",
+  "events": [
+    {
+      "event_category": "other_material_event",
+      "catalyst_description": "Caterpillar furnished supplemental Reg FD retail-sales statistics (machines and power systems) by segment and region; the document itself disclaims that this is not an audited or estimate-grade figure.",
+      "entities": [
+        {
+          "entity_name": "Caterpillar Inc.",
+          "role": "issuer",
+          "evidence_span": "Caterpillar Inc. (&#8220;Caterpillar&#8221;, &#8220;we&#8221; or &#8220;our&#8221;) is furnishing supplemental information concerning"
+        }
+      ],
+      "relationships": [],
+      "surprise": null,
+      "source_published_at": "2026-08-04",
+      "explicit_correction": false
+    }
+  ]
+}

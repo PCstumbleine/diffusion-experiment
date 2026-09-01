@@ -1,0 +1,21 @@
+{
+  "document_id": "1ab03952-2d9d-4ab6-b78e-c4505646b2f6",
+  "extraction_prompt_version": "1.1.0",
+  "events": [
+    {
+      "event_category": "earnings_surprise",
+      "catalyst_description": "Caterpillar Inc. 8-K cover page announcing Q2 2026 results were reported in an attached press release (Exhibit 99.1); no figures are stated in the cover page itself.",
+      "entities": [
+        {
+          "entity_name": "Caterpillar Inc.",
+          "role": "issuer",
+          "evidence_span": "Caterpillar Inc. issued a press release reporting its financial results for the quarter ended June 30, 2026"
+        }
+      ],
+      "relationships": [],
+      "surprise": null,
+      "source_published_at": "2026-08-04",
+      "explicit_correction": false
+    }
+  ]
+}

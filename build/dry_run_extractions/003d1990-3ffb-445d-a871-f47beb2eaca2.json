@@ -1,0 +1,54 @@
+{
+  "document_id": "003d1990-3ffb-445d-a871-f47beb2eaca2",
+  "extraction_prompt_version": "1.1.0",
+  "events": [
+    {
+      "event_category": "earnings_surprise",
+      "catalyst_description": "Caterpillar reported Q2 2026 sales and revenues of $20.5 billion, up 24% year-over-year.",
+      "entities": [
+        {
+          "entity_name": "Caterpillar Inc.",
+          "role": "issuer",
+          "evidence_span": "Caterpillar Reports Second-Quarter 2026 Results"
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "revenue_yoy_change",
+        "observed_value": 20.5,
+        "reference_value": null,
+        "reference_source": "Caterpillar's own prior-year quarter (Q2 2025) results, as restated in this same release",
+        "reference_timestamp": "2025-08-05",
+        "unit": "USD_billions",
+        "period": "Q2 2026",
+        "evidence_span": "Second-quarter 2026 sales and revenues increased 24% to $20.5 billion"
+      },
+      "source_published_at": "2026-08-04",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "buyback_or_capital_return",
+      "catalyst_description": "Caterpillar deployed $2.2 billion of cash for share repurchases and dividends in Q2 2026.",
+      "entities": [
+        {
+          "entity_name": "Caterpillar Inc.",
+          "role": "issuer",
+          "evidence_span": "Caterpillar Reports Second-Quarter 2026 Results"
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "capital_return_amount",
+        "observed_value": 2.2,
+        "reference_value": null,
+        "reference_source": "not stated -- no comparable prior-period figure given in this passage",
+        "reference_timestamp": null,
+        "unit": "USD_billions",
+        "period": "Q2 2026",
+        "evidence_span": "Deployed $2.2 billion of cash for share repurchases and dividends in the second quarter"
+      },
+      "source_published_at": "2026-08-04",
+      "explicit_correction": false
+    }
+  ]
+}

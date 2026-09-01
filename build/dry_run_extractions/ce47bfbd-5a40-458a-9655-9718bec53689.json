@@ -1,0 +1,21 @@
+{
+  "document_id": "ce47bfbd-5a40-458a-9655-9718bec53689",
+  "extraction_prompt_version": "1.1.0",
+  "events": [
+    {
+      "event_category": "other_material_event",
+      "catalyst_description": "JPMorgan Chase & Co. closed public offerings of four series of notes (Floating Rate Notes due 2030, Fixed-to-Floating Rate Notes due 2030 and 2032, and Fixed-Rate Reset Subordinated Notes due 2041) totaling approximately $9 billion in aggregate principal.",
+      "entities": [
+        {
+          "entity_name": "JPMorgan Chase & Co.",
+          "role": "issuer",
+          "evidence_span": "JPMorgan Chase&#160;&amp; Co. closed public offerings of"
+        }
+      ],
+      "relationships": [],
+      "surprise": null,
+      "source_published_at": "2026-07-23",
+      "explicit_correction": false
+    }
+  ]
+}

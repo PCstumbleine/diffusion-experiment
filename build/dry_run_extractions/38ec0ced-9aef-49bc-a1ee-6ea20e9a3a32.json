@@ -1,0 +1,21 @@
+{
+  "document_id": "38ec0ced-9aef-49bc-a1ee-6ea20e9a3a32",
+  "extraction_prompt_version": "1.1.0",
+  "events": [
+    {
+      "event_category": "earnings_surprise",
+      "catalyst_description": "Eli Lilly 8-K cover page announcing Q2 2026 results were reported in an attached press release (Exhibit 99.1); no figures are stated in the cover page itself.",
+      "entities": [
+        {
+          "entity_name": "Eli Lilly and Company",
+          "role": "issuer",
+          "evidence_span": "announcing the financial results of Eli Lilly and Company for the quarter ended June 30, 2026"
+        }
+      ],
+      "relationships": [],
+      "surprise": null,
+      "source_published_at": "2026-08-05",
+      "explicit_correction": false
+    }
+  ]
+}

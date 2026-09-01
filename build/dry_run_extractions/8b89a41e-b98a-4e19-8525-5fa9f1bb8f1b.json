@@ -1,0 +1,164 @@
+{
+  "document_id": "8b89a41e-b98a-4e19-8525-5fa9f1bb8f1b",
+  "extraction_prompt_version": "1.1.0",
+  "events": [
+    {
+      "event_category": "earnings_surprise",
+      "catalyst_description": "Lilly reported Q2 2026 revenue of $23.0 billion, up 48% year-over-year, driven by Mounjaro and Zepbound volume.",
+      "entities": [
+        {
+          "entity_name": "Eli Lilly and Company",
+          "role": "issuer",
+          "evidence_span": "Eli Lilly and Company (NYSE&#58; LLY) today announced"
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "revenue_yoy_change",
+        "observed_value": 23.0,
+        "reference_value": null,
+        "reference_source": "Lilly's own prior-year quarter (Q2 2025) results, as restated in this same release",
+        "reference_timestamp": "2025-08-06",
+        "unit": "USD_billions",
+        "period": "Q2 2026",
+        "evidence_span": "Revenue in Q2 2026 increased 48% to $23.0 billion driven primarily by Mounjaro and Zepbound volume."
+      },
+      "source_published_at": "2026-08-05",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "guidance_revision",
+      "catalyst_description": "Lilly raised full-year 2026 revenue guidance to a range of $85.0-$87.0 billion.",
+      "entities": [
+        {
+          "entity_name": "Eli Lilly and Company",
+          "role": "issuer",
+          "evidence_span": "Eli Lilly and Company (NYSE&#58; LLY) today announced"
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "revenue_guidance",
+        "observed_value": null,
+        "reference_value": null,
+        "reference_source": "Lilly's own prior full-year 2026 guidance (not itself re-stated with a figure in this specific passage)",
+        "reference_timestamp": null,
+        "unit": "USD_billions",
+        "period": "FY2026",
+        "evidence_span": "Increased 2026 full-year revenue guidance to be in the range of $85.0 billion to $87.0 billion"
+      },
+      "source_published_at": "2026-08-05",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "guidance_revision",
+      "catalyst_description": "Lilly updated full-year 2026 non-GAAP EPS guidance to a range of $35.50-$36.50 after acquired IPR&D charges.",
+      "entities": [
+        {
+          "entity_name": "Eli Lilly and Company",
+          "role": "issuer",
+          "evidence_span": "Eli Lilly and Company (NYSE&#58; LLY) today announced"
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "eps_guidance",
+        "observed_value": null,
+        "reference_value": null,
+        "reference_source": "Lilly's own prior full-year 2026 non-GAAP EPS guidance (not itself re-stated with a figure in this specific passage)",
+        "reference_timestamp": null,
+        "unit": "USD_per_share",
+        "period": "FY2026",
+        "evidence_span": "resulting in an updated range of $35.50 to $36.50"
+      },
+      "source_published_at": "2026-08-05",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "acquisition_or_divestiture",
+      "catalyst_description": "Lilly completed its acquisition of Orna Therapeutics, Inc. during Q2 2026 as part of business development activity.",
+      "entities": [
+        {
+          "entity_name": "Eli Lilly and Company",
+          "role": "issuer",
+          "evidence_span": "Eli Lilly and Company (NYSE&#58; LLY) today announced"
+        },
+        {
+          "entity_name": "Orna Therapeutics, Inc.",
+          "role": "target",
+          "evidence_span": "Orna Therapeutics, Inc."
+        }
+      ],
+      "relationships": [
+        {
+          "entity_a": "Eli Lilly and Company",
+          "entity_b": "Orna Therapeutics, Inc.",
+          "relationship_type": "acquirer_target",
+          "relationship_evidence": "explicit_named",
+          "source_authority": "company",
+          "document_explicitly_states_transmission_history": false,
+          "evidence_span": "completed acquisitions of Orna Therapeutics, Inc., Ajax Therapeutics, Inc., Centessa Pharmaceuticals plc. and Kelonia Therapeutics, Inc.",
+          "raw_llm_relationship_score": 0.95
+        }
+      ],
+      "surprise": null,
+      "source_published_at": "2026-08-05",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "acquisition_or_divestiture",
+      "catalyst_description": "Lilly completed its acquisition of Ajax Therapeutics, Inc. during Q2 2026 as part of business development activity.",
+      "entities": [
+        {
+          "entity_name": "Eli Lilly and Company",
+          "role": "issuer",
+          "evidence_span": "Eli Lilly and Company (NYSE&#58; LLY) today announced"
+        },
+        {
+          "entity_name": "Ajax Therapeutics, Inc.",
+          "role": "target",
+          "evidence_span": "Ajax Therapeutics, Inc."
+        }
+      ],
+      "relationships": [
+        {
+          "entity_a": "Eli Lilly and Company",
+          "entity_b": "Ajax Therapeutics, Inc.",
+          "relationship_type": "acquirer_target",
+          "relationship_evidence": "explicit_named",
+          "source_authority": "company",
+          "document_explicitly_states_transmission_history": false,
+          "evidence_span": "completed acquisitions of Orna Therapeutics, Inc., Ajax Therapeutics, Inc., Centessa Pharmaceuticals plc. and Kelonia Therapeutics, Inc.",
+          "raw_llm_relationship_score": 0.95
+        }
+      ],
+      "surprise": null,
+      "source_published_at": "2026-08-05",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "capacity_change",
+      "catalyst_description": "Lilly committed an additional $4.5 billion to expand its Indiana manufacturing sites.",
+      "entities": [
+        {
+          "entity_name": "Eli Lilly and Company",
+          "role": "issuer",
+          "evidence_span": "Eli Lilly and Company (NYSE&#58; LLY) today announced"
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "capex_commitment",
+        "observed_value": 4.5,
+        "reference_value": null,
+        "reference_source": "not stated -- a new capital commitment, not a comparison against a prior figure",
+        "reference_timestamp": null,
+        "unit": "USD_billions",
+        "period": null,
+        "evidence_span": "Committed an additional $4.5 billion to expand Indiana manufacturing sites"
+      },
+      "source_published_at": "2026-08-05",
+      "explicit_correction": false
+    }
+  ]
+}

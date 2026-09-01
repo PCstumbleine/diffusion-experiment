@@ -95,3 +95,34 @@ class AnthropicExtractionClient:
         )
         tool_use_block = next(block for block in response.content if block.type == "tool_use")
         return tool_use_block.input
+
+
+class FileBackedExtractionClient:
+    """Stand-in for AnthropicExtractionClient that replays a pre-saved
+    extraction JSON file instead of calling a real LLM API -- no network
+    call, no cost. Used for a no-paid-API-call dry run where the
+    extraction JSON for each document was produced by hand (or by Claude
+    itself, acting as the extractor by reading extraction_prompt_v1.md and
+    the document directly, the same way it would read any other file)
+    ahead of time and saved to <extractions_dir>/<document_id>.json.
+
+    Matches AnthropicExtractionClient's .extract() signature exactly, so
+    it's a drop-in swap for extraction_runner.py's llm_client parameter --
+    every downstream step (JSON Schema validation, validate_extraction_
+    output's per-claim checks, entity resolution, relationship writes,
+    candidate generation) runs exactly as built and tested; only the
+    "call an API" step is replaced."""
+
+    def __init__(self, extractions_dir: str | Path):
+        self.extractions_dir = Path(extractions_dir)
+
+    def extract(self, document_id: str, raw_content: str, prompt_version: str) -> dict:
+        path = self.extractions_dir / f"{document_id}.json"
+        if not path.exists():
+            raise FileNotFoundError(
+                f"No saved extraction JSON for document_id={document_id!r} at {path} -- "
+                "FileBackedExtractionClient never calls a real LLM API, it only replays "
+                "pre-saved files. Save one there first."
+            )
+        with path.open(encoding="utf-8") as f:
+            return json.load(f)

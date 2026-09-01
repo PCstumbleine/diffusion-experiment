@@ -34,7 +34,7 @@ from edgar_ingest_worker import (
     Filing, FilingDocument, FilingPackageParseError,
     list_recent_target_filings, list_filing_documents,
     ingest_filing, find_existing_document, accession_already_ingested,
-    poll_once, TARGET_FORMS, POLL_INTERVAL_SECONDS,
+    poll_once, filter_watchlist, TARGET_FORMS, POLL_INTERVAL_SECONDS,
 )
 
 SAMPLE_SUBMISSIONS = {
@@ -236,6 +236,19 @@ def test_list_filing_documents_handles_real_html_entity_escaped_page():
     docs = list_filing_documents(headers, primary_document="primary.htm")
     assert {d.component_label for d in docs} == {"primary", "EX-99.1"}
     assert {d.filename for d in docs} == {"primary.htm", "ex991.htm"}
+
+
+def test_filter_watchlist_scopes_to_given_ciks_without_mutating_input():
+    watchlist = [("0001045810", "nvda-id"), ("0000002488", "amd-id"), ("0000019617", "jpm-id")]
+    scoped = filter_watchlist(watchlist, "1045810,0000019617")
+    assert scoped == [("0001045810", "nvda-id"), ("0000019617", "jpm-id")]
+    assert watchlist == [("0001045810", "nvda-id"), ("0000002488", "amd-id"), ("0000019617", "jpm-id")]
+
+
+def test_filter_watchlist_none_or_empty_is_a_no_op():
+    watchlist = [("0001045810", "nvda-id")]
+    assert filter_watchlist(watchlist, None) == watchlist
+    assert filter_watchlist(watchlist, "") == watchlist
 
 
 def make_client(index_headers_text, document_texts: dict[str, str]):

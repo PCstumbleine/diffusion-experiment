@@ -966,13 +966,22 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", default="claude-sonnet-5", help="extractor_model_id to record and use")
     parser.add_argument("--model-version", default="2026-01", help="extractor_model_version to record")
+    parser.add_argument("--dsn", default=DB_DSN,
+                         help="Postgres connection string (default: %(default)r).")
+    parser.add_argument("--extractions-dir", default=None,
+                         help="If given, use FileBackedExtractionClient reading pre-saved extraction "
+                              "JSON files from this directory instead of calling a real LLM API "
+                              "(e.g. for a no-cost dry run) -- see llm_client.py.")
     args = parser.parse_args()
 
-    from llm_client import AnthropicExtractionClient
-
-    conn = psycopg2.connect(DB_DSN)
+    conn = psycopg2.connect(args.dsn)
     try:
-        llm_client = AnthropicExtractionClient(model=args.model)
+        if args.extractions_dir:
+            from llm_client import FileBackedExtractionClient
+            llm_client = FileBackedExtractionClient(args.extractions_dir)
+        else:
+            from llm_client import AnthropicExtractionClient
+            llm_client = AnthropicExtractionClient(model=args.model)
         run_extraction_pass(conn, llm_client, PROMPT_VERSION, args.model, args.model_version)
     finally:
         conn.close()

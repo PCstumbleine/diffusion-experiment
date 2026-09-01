@@ -267,6 +267,19 @@ def load_watchlist(conn) -> list[tuple[str, str]]:
         cur.execute("SELECT cik, entity_id FROM watchlist_membership")
         return [(cik, str(entity_id)) for cik, entity_id in cur.fetchall()]
 
+
+def filter_watchlist(watchlist: list[tuple[str, str]], only_ciks: str | None) -> list[tuple[str, str]]:
+    """Scopes a loaded watchlist down to a comma-separated list of CIKs for
+    one invocation, WITHOUT touching watchlist_membership itself -- useful
+    for a small, reviewable dry run against a handful of companies rather
+    than the full watchlist. CIKs may be given with or without leading
+    zeros (both "1045810" and "0001045810" match). None/empty is a no-op."""
+    if not only_ciks:
+        return watchlist
+    wanted = {c.strip().zfill(10) for c in only_ciks.split(",") if c.strip()}
+    return [(cik, entity_id) for cik, entity_id in watchlist if cik in wanted]
+
+
 POLL_INTERVAL_SECONDS = 15 * 60
 
 
@@ -788,14 +801,22 @@ def main():
     parser.add_argument("--once", action="store_true", help="Poll once and exit, instead of looping.")
     parser.add_argument("--dry-run", action="store_true",
                          help="Fetch filing metadata and log what would be ingested, but write nothing to the database.")
+    parser.add_argument("--dsn", default=DB_DSN,
+                         help="Postgres connection string (default: %(default)r). Point this at a "
+                              "disposable database for a small/reviewable dry run instead of the main one.")
+    parser.add_argument("--only-ciks", default=None,
+                         help="Comma-separated CIKs to scope this invocation to (e.g. '1045810,2488'), "
+                              "without touching watchlist_membership itself -- for a small dry run "
+                              "against a handful of companies rather than the full watchlist.")
     args = parser.parse_args()
 
     client = EdgarClient(USER_AGENT)
-    conn = psycopg2.connect(DB_DSN)
+    conn = psycopg2.connect(args.dsn)
     try:
-        watchlist = load_watchlist(conn)
+        watchlist = filter_watchlist(load_watchlist(conn), args.only_ciks)
         if not watchlist:
-            log.error("watchlist_membership is empty — run build/seed_entities.py first.")
+            log.error("Watchlist is empty (after --only-ciks filtering, if given) — "
+                      "run build/seed_entities.py first, or check --only-ciks.")
             sys.exit(1)
         if args.once:
             poll_once(conn, client, watchlist, dry_run=args.dry_run)

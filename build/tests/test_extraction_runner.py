@@ -23,8 +23,8 @@ from extraction_runner import (
     validate_extraction_output, classify_relationship_eligibility,
     generate_candidates_for_event_version, ExtractionValidationError,
 )
+from llm_client import PROMPT_VERSION  # kept in sync with extraction_prompt_v1.md's schema automatically
 
-PROMPT_VERSION = "1.1.0"
 MODEL_ID = "test-model"
 MODEL_VERSION = "test-version"
 
@@ -155,6 +155,164 @@ def test_distinct_events_in_the_same_catalyst_stay_separate(conn):
     assert result["canonical_events_created"] == 2
 
 
+def test_cover_page_with_empty_events_contributes_nothing_and_exhibit_event_stands_alone(conn):
+    """Fix (extraction_prompt_v1.md v1.2.0, code review post-Dry-Run-001):
+    a cover page that only points to an exhibit should extract to an empty
+    events array, not a contentless stub -- Dry Run 001 found that a
+    null-surprise stub event never canonicalizes with its own exhibit's
+    real event (different fingerprints), producing two canonical events
+    per catalyst as the normal case for an ordinary earnings 8-K. This
+    confirms the pipeline already does the right thing once the cover
+    page correctly contributes zero events: the exhibit's event becomes
+    the catalyst's sole canonical event, and only the exhibit is linked."""
+    issuer_id = make_entity(conn, "Acme Corporation")
+    cover_span = "Acme Corporation issued a press release; see Exhibit 99.1."
+    exhibit_span = "Acme Corporation reported revenue of $5.0 billion."
+    catalyst_id, doc_ids = make_catalyst_with_documents(
+        conn,
+        [("primary", "primary", cover_span), ("exhibit", "exhibit", exhibit_span)],
+        issuer_entity_id=issuer_id,
+    )
+    real_event = {
+        "event_category": "earnings_surprise", "catalyst_description": "Earnings",
+        "entities": [{"entity_name": "Acme Corporation", "role": "issuer", "evidence_span": exhibit_span}],
+        "relationships": [],
+        "surprise": {
+            "surprise_type": "revenue_actual", "observed_value": 5.0, "reference_value": None,
+            "reference_source": None, "reference_timestamp": None, "unit": "USD_billions",
+            "period": "Q2", "evidence_span": exhibit_span,
+        },
+        "explicit_correction": False,
+    }
+    outputs = {
+        doc_ids["primary"]: llm_output(doc_ids["primary"], []),  # correctly empty, per the new prompt rule
+        doc_ids["exhibit"]: llm_output(doc_ids["exhibit"], [real_event]),
+    }
+    result = process_full(conn, catalyst_id, outputs)
+
+    assert result["canonical_events_created"] == 1  # not 2 -- no contentless stub
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT edl.document_id FROM event_document_links edl "
+            "JOIN canonical_events ce ON ce.canonical_event_id = edl.canonical_event_id "
+            "WHERE ce.catalyst_id = %s",
+            (catalyst_id,),
+        )
+        linked_docs = {str(r[0]) for r in cur.fetchall()}
+    assert linked_docs == {doc_ids["exhibit"]}  # the cover page contributed nothing
+
+
+# ---------------------------------------------------------------------------
+# Range-valued guidance (extraction_prompt_v1.md v1.2.0)
+# ---------------------------------------------------------------------------
+
+def test_range_valued_guidance_inserts_and_is_stored(conn):
+    issuer_id = make_entity(conn, "Acme Corporation")
+    span = "Acme raised full-year revenue guidance to $85.0 billion to $87.0 billion."
+    catalyst_id, doc_ids = make_catalyst_with_documents(
+        conn, [("primary", "primary", span)], issuer_entity_id=issuer_id,
+    )
+    event = {
+        "event_category": "guidance_revision", "catalyst_description": "Guidance raise",
+        "entities": [{"entity_name": "Acme Corporation", "role": "issuer", "evidence_span": span}],
+        "relationships": [],
+        "surprise": {
+            "surprise_type": "revenue_guidance",
+            "observed_value": None, "reference_value": None,
+            "observed_value_low": 85.0, "observed_value_high": 87.0,
+            "reference_value_low": None, "reference_value_high": None,
+            "reference_source": None, "reference_timestamp": None,
+            "unit": "USD_billions", "period": "FY2026",
+            "evidence_span": span,
+        },
+        "explicit_correction": False,
+    }
+    outputs = {doc_ids["primary"]: llm_output(doc_ids["primary"], [event])}
+    result = process_full(conn, catalyst_id, outputs)
+    assert result["canonical_events_created"] == 1
+
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT observed_value, observed_value_low, observed_value_high FROM extracted_events ee "
+            "JOIN event_versions ev ON ev.event_version_id = ee.event_version_id "
+            "JOIN canonical_events ce ON ce.canonical_event_id = ev.canonical_event_id "
+            "WHERE ce.catalyst_id = %s",
+            (catalyst_id,),
+        )
+        row = cur.fetchone()
+    assert row == (None, 85.0, 87.0)
+
+
+def test_different_guidance_ranges_stay_separate_events(conn):
+    """Range fields are part of the canonicalization fingerprint -- two
+    DIFFERENT stated ranges must not collide into one canonical event just
+    because observed_value/reference_value are both None for a range
+    claim."""
+    issuer_id = make_entity(conn, "Acme Corporation")
+    span_a = "First guidance range statement: $85.0 billion to $87.0 billion."
+    span_b = "Second guidance range statement: $90.0 billion to $92.0 billion."
+    catalyst_id, doc_ids = make_catalyst_with_documents(
+        conn, [("primary", "primary", f"{span_a} {span_b}")], issuer_entity_id=issuer_id,
+    )
+
+    def range_event(span, low, high):
+        return {
+            "event_category": "guidance_revision", "catalyst_description": "x",
+            "entities": [{"entity_name": "Acme Corporation", "role": "issuer", "evidence_span": span}],
+            "relationships": [],
+            "surprise": {
+                "surprise_type": "revenue_guidance", "observed_value": None, "reference_value": None,
+                "observed_value_low": low, "observed_value_high": high,
+                "reference_value_low": None, "reference_value_high": None,
+                "reference_source": None, "reference_timestamp": None,
+                "unit": "USD_billions", "period": "FY2026", "evidence_span": span,
+            },
+            "explicit_correction": False,
+        }
+
+    outputs = {doc_ids["primary"]: llm_output(doc_ids["primary"], [
+        range_event(span_a, 85.0, 87.0), range_event(span_b, 90.0, 92.0),
+    ])}
+    result = process_full(conn, catalyst_id, outputs)
+    assert result["canonical_events_created"] == 2
+
+
+def test_extracted_events_rejects_observed_range_with_low_greater_than_high(conn):
+    from conftest import make_extraction_run
+    import psycopg2.extras
+
+    issuer_id = make_entity(conn, "Acme Corporation")
+    document_id = make_raw_document(conn)
+    run_id = make_extraction_run(conn, document_id=document_id)
+    with conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO catalysts (originating_document_id, issuer_entity_id) VALUES (%s, %s) RETURNING catalyst_id",
+            (document_id, issuer_id),
+        )
+        catalyst_id = cur.fetchone()[0]
+        cur.execute(
+            "INSERT INTO canonical_events (catalyst_id, event_category) VALUES (%s, 'guidance_revision') "
+            "RETURNING canonical_event_id",
+            (catalyst_id,),
+        )
+        canonical_event_id = cur.fetchone()[0]
+        cur.execute(
+            "INSERT INTO event_versions (canonical_event_id, version_number) VALUES (%s, 1) "
+            "RETURNING event_version_id",
+            (canonical_event_id,),
+        )
+        event_version_id = cur.fetchone()[0]
+
+    with pytest.raises(psycopg2.errors.CheckViolation):
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO extracted_events (event_version_id, extraction_run_id, extraction_prompt_version, "
+                "raw_llm_output, observed_value_low, observed_value_high) VALUES (%s, %s, %s, %s, %s, %s)",
+                (event_version_id, run_id, PROMPT_VERSION, psycopg2.extras.Json({}), 100.0, 50.0),
+            )
+    conn.rollback()
+
+
 # ---------------------------------------------------------------------------
 # Nullable surprise
 # ---------------------------------------------------------------------------
@@ -268,6 +426,83 @@ def test_validate_extraction_output_drops_relationship_with_unmapped_type():
     assert any("does not map to the closed vocabulary" in msg for msg in drop_log)
 
 
+def test_validate_extraction_output_drops_surprise_with_reference_value_but_no_source():
+    """Provenance invariant (code review, post-Dry-Run-001): a reference
+    figure with no stated source is an unexplained benchmark, not a fact."""
+    raw_content = "Revenue guidance raised to $10 billion from $9 billion."
+    output = {
+        "document_id": "d1", "extraction_prompt_version": PROMPT_VERSION,
+        "events": [{
+            "event_category": "guidance_revision", "catalyst_description": "x",
+            "entities": [{"entity_name": "A Co", "role": "issuer", "evidence_span": "Revenue guidance raised to $10 billion"}],
+            "relationships": [],
+            "surprise": {
+                "surprise_type": "revenue_guidance", "observed_value": 10, "reference_value": 9,
+                "reference_source": None,  # the violation
+                "reference_timestamp": None, "unit": "USD_billions", "period": "FY2026",
+                "evidence_span": "Revenue guidance raised to $10 billion from $9 billion",
+            },
+            "explicit_correction": False,
+        }],
+    }
+    cleaned, drop_log = validate_extraction_output(output, raw_content, PROMPT_VERSION, "d1")
+    assert len(cleaned["events"]) == 1  # the event survives
+    assert cleaned["events"][0]["surprise"] is None  # only the surprise claim is dropped
+    assert any("reference_source" in msg for msg in drop_log)
+
+
+def test_validate_extraction_output_drops_surprise_with_reference_range_but_no_source():
+    """Same rule, exercised via the new range fields (v1.2.0) rather than
+    the point reference_value."""
+    raw_content = "Guidance raised to $10 billion to $11 billion from a prior range."
+    output = {
+        "document_id": "d1", "extraction_prompt_version": PROMPT_VERSION,
+        "events": [{
+            "event_category": "guidance_revision", "catalyst_description": "x",
+            "entities": [{"entity_name": "A Co", "role": "issuer", "evidence_span": "Guidance raised to $10 billion to $11 billion"}],
+            "relationships": [],
+            "surprise": {
+                "surprise_type": "revenue_guidance", "observed_value": None, "reference_value": None,
+                "observed_value_low": 10, "observed_value_high": 11,
+                "reference_value_low": 8, "reference_value_high": 9,
+                "reference_source": None,  # the violation -- a reference range with no source
+                "reference_timestamp": None, "unit": "USD_billions", "period": "FY2026",
+                "evidence_span": "Guidance raised to $10 billion to $11 billion from a prior range",
+            },
+            "explicit_correction": False,
+        }],
+    }
+    cleaned, drop_log = validate_extraction_output(output, raw_content, PROMPT_VERSION, "d1")
+    assert cleaned["events"][0]["surprise"] is None
+    assert any("reference_source" in msg for msg in drop_log)
+
+
+def test_validate_extraction_output_allows_null_reference_source_when_no_reference_value():
+    """The other half of the invariant: reference_source may legitimately
+    be null when there's genuinely no reference value to attribute (e.g.
+    a first-time guidance issuance) -- this must NOT be treated as a
+    violation."""
+    raw_content = "NVIDIA guided next quarter's revenue to $108.0 billion."
+    output = {
+        "document_id": "d1", "extraction_prompt_version": PROMPT_VERSION,
+        "events": [{
+            "event_category": "guidance_revision", "catalyst_description": "x",
+            "entities": [{"entity_name": "NVIDIA", "role": "issuer", "evidence_span": "NVIDIA guided next quarter's revenue to $108.0 billion"}],
+            "relationships": [],
+            "surprise": {
+                "surprise_type": "revenue_guidance", "observed_value": 108.0, "reference_value": None,
+                "reference_source": None,  # fine -- no reference_value to attribute
+                "reference_timestamp": None, "unit": "USD_billions", "period": "Q3",
+                "evidence_span": "NVIDIA guided next quarter's revenue to $108.0 billion",
+            },
+            "explicit_correction": False,
+        }],
+    }
+    cleaned, drop_log = validate_extraction_output(output, raw_content, PROMPT_VERSION, "d1")
+    assert cleaned["events"][0]["surprise"] is not None
+    assert cleaned["events"][0]["surprise"]["observed_value"] == 108.0
+
+
 # ---------------------------------------------------------------------------
 # Retry-after-failure and concurrent-claim races (code review fixes #1/#2)
 # ---------------------------------------------------------------------------
@@ -353,6 +588,58 @@ def test_classify_relationship_eligibility_passes_when_both_clocks_precede_decis
     }
     ok, reason = classify_relationship_eligibility(rel, decision_at)
     assert ok is True and reason is None
+
+
+# ---------------------------------------------------------------------------
+# Issuer-identity shortcut (code review, post-Dry-Run-001)
+# ---------------------------------------------------------------------------
+
+def test_issuer_role_resolves_to_the_known_issuer_even_when_the_name_would_not_match(conn):
+    """Dry Run 001's real finding: an issuer can name itself in its own
+    filing in a way that fails ordinary name-based resolution (Eli Lilly's
+    own press release calls itself "Eli Lilly and Company", which didn't
+    match its seeded alias). process_catalyst already knows the catalyst's
+    issuer independently (from the filing's own CIK via watchlist_
+    membership) -- an extracted entity with role="issuer" is resolved
+    directly to that known entity_id, never through name-based resolution,
+    so a normalization mismatch can never orphan the issuer's own events."""
+    issuer_id = make_entity(conn, "Formal Legal Name Inc")
+    span = "SomeCo Weirdname reported quarterly earnings of $5 million."
+    catalyst_id, doc_ids = make_catalyst_with_documents(
+        conn, [("primary", "primary", span)], issuer_entity_id=issuer_id,
+    )
+    event = {
+        "event_category": "earnings_surprise", "catalyst_description": "Earnings",
+        # Deliberately a name with NO alias anywhere for "Formal Legal Name
+        # Inc" -- would fail ordinary resolution if it were attempted.
+        "entities": [{"entity_name": "SomeCo Weirdname", "role": "issuer", "evidence_span": span}],
+        "relationships": [], "surprise": None, "explicit_correction": False,
+    }
+    outputs = {doc_ids["primary"]: llm_output(doc_ids["primary"], [event])}
+    result = process_full(conn, catalyst_id, outputs)
+    assert result["canonical_events_created"] == 1
+
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT ee.entity_id, ee.role FROM event_entities ee "
+            "JOIN event_versions ev ON ev.event_version_id = ee.event_version_id "
+            "JOIN canonical_events ce ON ce.canonical_event_id = ev.canonical_event_id "
+            "WHERE ce.catalyst_id = %s",
+            (catalyst_id,),
+        )
+        rows = cur.fetchall()
+    assert len(rows) == 1
+    assert str(rows[0][0]) == issuer_id
+    assert rows[0][1] == "issuer"
+
+    # The shortcut bypasses name-based resolution entirely for role=issuer
+    # -- confirms this isn't secretly working via some alias coincidence.
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT count(*) FROM unresolved_entity_mentions WHERE raw_name = %s",
+            ("SomeCo Weirdname",),
+        )
+        assert cur.fetchone()[0] == 0
 
 
 def test_generate_candidates_marks_ineligible_for_late_observed_relationship(conn):

@@ -40,6 +40,7 @@ from __future__ import annotations
 import argparse
 import csv
 import logging
+import re
 import sys
 import uuid
 from pathlib import Path
@@ -103,6 +104,26 @@ def seed_one(conn, sector: str, watchlist_ticker: str, sec_ticker: str, sec_titl
     bare_name = normalize_entity_name(legal_name)
     if bare_name:
         insert_alias(conn, entity_id, bare_name, "seed_bare_name")
+
+    # Fix (code review, post-dry-run-001): a real filing spells a company's
+    # own name out with "and" (e.g. Eli Lilly's own press release says
+    # "Eli Lilly and Company") where SEC's title uses "&" (seeded here as
+    # "ELI LILLY & Co"). normalize_entity_name() is deliberately NOT
+    # changed to canonicalize "&"->"and" globally -- that would silently
+    # change already-working normalized forms for names where "&" isn't
+    # trailing (e.g. "Johnson & Johnson" -> "johnson johnson" today; a
+    # global "&"->"and" substitution would produce "johnson and johnson"
+    # instead, a change with no benefit that would need every existing
+    # entity_aliases.normalized_alias row recomputed and re-checked for
+    # new collisions across the whole 108-company set). Adding one extra
+    # seeded alias per "&"-bearing legal name is scoped to exactly the
+    # names that need it and touches nothing that already works. Affects
+    # at least DEERE & CO, ELI LILLY & Co, Merck & Co., Inc., and
+    # JPMORGAN CHASE & CO in the current 108-company set.
+    if "&" in legal_name:
+        spelled_out = re.sub(r"\s*&\s*", " and ", legal_name)
+        spelled_out = re.sub(r"\s+", " ", spelled_out).strip()
+        insert_alias(conn, entity_id, spelled_out, "seed_ampersand_and_form")
 
     with conn.cursor() as cur:
         cur.execute("SELECT instrument_id FROM instruments WHERE entity_id = %s", (entity_id,))

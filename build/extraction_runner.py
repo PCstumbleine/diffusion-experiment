@@ -375,6 +375,21 @@ def validate_extraction_output(output: dict, raw_content: str, requested_prompt_
             if not isinstance(surprise, dict) or not span_ok(surprise.get("evidence_span")):
                 drop_log.append(f"event[{i}].surprise: invalid or bad evidence_span, dropped (kept event, surprise=null)")
                 surprise = None
+            elif (
+                any(surprise.get(k) is not None for k in
+                    ("reference_value", "reference_value_low", "reference_value_high"))
+                and not surprise.get("reference_source")
+            ):
+                # Provenance invariant (code review, post-dry-run-001): a
+                # reference figure with no stated source is an unexplained
+                # benchmark, not a fact. Dropped the same way as any other
+                # per-claim validation failure -- the whole event survives
+                # with surprise=null, not the whole document.
+                drop_log.append(
+                    f"event[{i}].surprise: reference_value(_low/_high) given with no "
+                    "reference_source, dropped (kept event, surprise=null)"
+                )
+                surprise = None
             event = dict(event, surprise=surprise)
 
         cleaned_events.append(event)
@@ -451,6 +466,16 @@ def _event_fingerprint(event: dict, resolved_roles: frozenset) -> tuple:
         surprise.get("period"),
         surprise.get("observed_value"),
         surprise.get("reference_value"),
+        # Range fields (v1.2.0) included too -- without these, two
+        # DIFFERENT range-valued guidance events sharing the same
+        # surprise_type/period (both otherwise-common fields left None
+        # for a range claim) would incorrectly collide into one
+        # fingerprint and get merged, since observed_value/reference_value
+        # alone can no longer distinguish them.
+        surprise.get("observed_value_low"),
+        surprise.get("observed_value_high"),
+        surprise.get("reference_value_low"),
+        surprise.get("reference_value_high"),
     )
 
 
@@ -715,7 +740,26 @@ def _do_process_catalyst(conn, catalyst_id: str, docs: list, prompt_version: str
         for event in cleaned_output.get("events", []):
             resolved_entities = []
             for ent in event.get("entities", []):
-                entity_id = resolve(ent["entity_name"], document_id, extraction_run_id)
+                if ent["role"] == "issuer" and issuer_entity_id is not None:
+                    # Issuer-identity shortcut (code review, post-dry-run-001):
+                    # process_catalyst already knows this catalyst's issuer
+                    # independently of anything the extraction produced --
+                    # it comes from the filing's own CIK, via
+                    # watchlist_membership, at ingestion time. An issuer
+                    # naming itself in its own filing is resolved directly
+                    # to that known entity_id rather than run through
+                    # name-based resolution at all, so a normalization
+                    # mismatch between how a company writes its own name in
+                    # prose and how it's seeded can never orphan its own
+                    # events. This does NOT apply to any other role
+                    # (a named counterparty, or an issuer mentioned in
+                    # ANOTHER company's filing, still goes through normal
+                    # resolution) and does not apply to relationship
+                    # entity_a/entity_b (those carry no role information).
+                    entity_id = issuer_entity_id
+                    counts["mentions_matched"] += 1
+                else:
+                    entity_id = resolve(ent["entity_name"], document_id, extraction_run_id)
                 if entity_id is not None:
                     resolved_entities.append((entity_id, ent["role"]))
             role_set = frozenset(resolved_entities)
@@ -758,12 +802,15 @@ def _do_process_catalyst(conn, catalyst_id: str, docs: list, prompt_version: str
                     """
                     INSERT INTO extracted_events
                         (event_version_id, extraction_run_id, surprise_type, observed_value, reference_value,
+                         observed_value_low, observed_value_high, reference_value_low, reference_value_high,
                          reference_source, reference_timestamp, unit, period,
                          extraction_prompt_version, raw_llm_output)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     (event_version_id, extraction_run_id, surprise.get("surprise_type"),
                      surprise.get("observed_value"), surprise.get("reference_value"),
+                     surprise.get("observed_value_low"), surprise.get("observed_value_high"),
+                     surprise.get("reference_value_low"), surprise.get("reference_value_high"),
                      surprise.get("reference_source"), surprise.get("reference_timestamp"),
                      surprise.get("unit"), surprise.get("period"),
                      prompt_version, psycopg2.extras.Json(event)),

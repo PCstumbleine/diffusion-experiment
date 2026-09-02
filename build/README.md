@@ -11,13 +11,14 @@ and hoped to work.
   confirming the most important fix — a relationship valid since 2022 but
   not publicly known until 2026 correctly stays invisible to a 2024 query.
   As of the extraction-runner bridge, this is no longer the *only* schema
-  file — see `migrations/` below. Apply all three, in order, on a fresh
+  file — see `migrations/` below. Apply all four, in order, on a fresh
   database:
   ```
   createdb diffusion_experiment
   psql -d diffusion_experiment -f schema.sql
   psql -d diffusion_experiment -f migrations/002_extraction_runner.sql
   psql -d diffusion_experiment -f migrations/003_extraction_runner_fixes.sql
+  psql -d diffusion_experiment -f migrations/004_range_valued_guidance.sql
   ```
   `schema.sql` itself is treated as migration "001" retroactively (it was
   never versioned before now); `migrations/002_extraction_runner.sql` is
@@ -29,6 +30,10 @@ and hoped to work.
   `migrations/003_extraction_runner_fixes.sql` came from an adversarial
   code review of migration 002 + the runner before the first live dry
   run — see "A pre-dry-run code review" below.
+  `migrations/004_range_valued_guidance.sql` adds `observed_value_low`/
+  `_high` and `reference_value_low`/`_high` to `extracted_events`, found
+  necessary by Dry Run 001 (`build/DRY_RUN_REPORT_001.md`) — see "A
+  post-dry-run code review" below.
 - `extraction_prompt_v1.md` — the prompt that reads a document and pulls out
   structured facts (event type, companies involved, raw numbers). Its JSON
   output schema was checked and parses correctly. It deliberately never
@@ -333,7 +338,8 @@ inside test fixtures; nothing connected a real filing to them. New files:
   rule from §3 exactly: the relationship is written at resolution time,
   with `system_observed_at` set to the real resolution timestamp, never
   backdated.
-- `migrations/002_extraction_runner.sql`, `migrations/003_extraction_runner_fixes.sql` — see above.
+- `migrations/002_extraction_runner.sql`, `migrations/003_extraction_runner_fixes.sql`,
+  `migrations/004_range_valued_guidance.sql` — see above.
 - 27 new tests (`tests/test_entity_resolution.py`,
   `tests/test_extraction_runner.py`, `tests/test_manual_resolve.py`, plus
   one more added to `tests/test_edgar_ingest_worker.py` for the live bug
@@ -345,7 +351,11 @@ inside test fixtures; nothing connected a real filing to them. New files:
   relationship a later event in the same catalyst discovers), retry after
   a failed extraction, a genuine two-connection concurrent-claim race,
   full-pipeline idempotency, and atomicity under a forced mid-batch
-  failure — bringing the suite to 79 tests total, all passing.
+  failure — bringing the suite to 79 tests total, all passing. (Dry Run
+  001 and its post-dry-run fix round added 15 more — see below — for
+  94 total as of this writing; `build/tests/pytest_run_002.xml` /
+  `pytest_run_002.out.txt` are real, captured output for that count, not
+  inferred from `.pytest_cache`.)
 
 **A live bug found while wiring this up, not in the design doc:** every
 real `-index-headers.html` page `edgar_ingest_worker.py` fetches serves
@@ -446,6 +456,99 @@ aren't exercised until manual resolution actually happens; and
 `first_executable_at` staying `NULL` only matters at the trade-execution
 stage.
 
+## Dry Run 001 — the first real, no-cost extraction test
+
+`build/DRY_RUN_REPORT_001.md` is the full write-up: real EDGAR filings
+(NVIDIA, Caterpillar, Eli Lilly, JPMorgan Chase), 9 documents hand-extracted
+by reading `extraction_prompt_v1.md` directly (no Anthropic API call — see
+`llm_client.FileBackedExtractionClient`), run through the real pipeline.
+It found one load-bearing bug (below) and several smaller real gaps,
+fixed in the next round.
+
+## A post-dry-run code review — four real fixes plus a hardening, from Dry Run 001's findings
+
+An adversarial review of Dry Run 001's report (ChatGPT, independently
+re-verified before being accepted, same discipline as every other round)
+confirmed one load-bearing bug and three smaller real gaps, plus proposed
+a hardening this project agreed was worth doing alongside them.
+`migrations/004_range_valued_guidance.sql` and `extraction_prompt_v1.md`
+v1.2.0 carry the schema/prompt side; `build/tests/pytest_run_002.xml` /
+`pytest_run_002.out.txt` are the real, captured `pytest -v` output for
+this round (94 passed, exit code 0) — not inferred from `.pytest_cache`,
+which a review round correctly flagged as too weak a source for this
+project's own "verified, not asserted" standard (`.pytest_cache/v/cache/
+nodeids` only ever grows across runs; it proves tests are known to exist,
+not that they passed in one specific invocation).
+
+1. **The Eli Lilly `&`/`and` resolution gap (the dry run's single
+   load-bearing finding) is fixed** — but not by changing
+   `normalize_entity_name()`. `seed_entities.py` now seeds one additional
+   alias per `"&"`-bearing legal name with the `&` spelled out as `and`
+   (currently: Deere, Eli Lilly, Merck, JPMorgan Chase). A global
+   `&`→`and` canonicalization in the normalizer itself was considered and
+   rejected: it would silently change already-correct normalized forms
+   for names where `&` isn't trailing (`Johnson & Johnson` normalizes to
+   `johnson johnson` today; canonicalizing the `&` first would produce
+   `johnson and johnson` instead, for no benefit, and would need every
+   existing `entity_aliases` row recomputed and re-checked for new
+   collisions across the whole 108-company set). The alias-only fix
+   touches nothing that already worked.
+2. **A deterministic issuer-identity shortcut**, a separate hardening
+   proposed alongside the fix above: `process_catalyst` already knows a
+   catalyst's issuer independently of anything extraction produces (from
+   the filing's own CIK, via `watchlist_membership`) — an extracted
+   entity with `role="issuer"` is now resolved directly to that known
+   `entity_id`, never through name-based resolution, so a normalization
+   mismatch can never orphan an issuer's own events again. Named
+   counterparties, and an issuer mentioned in *another* company's filing,
+   are unaffected — still resolved normally.
+3. **`reference_source` can be `null`** (`extraction_prompt_v1.md` v1.2.0)
+   — it was typed as a required string even though the prompt's own
+   instructions say to use `null` when a field can't be determined; three
+   of the dry run's own extractions had to route around this. Paired with
+   a real provenance invariant `validate_extraction_output()` now
+   enforces: a non-null reference value (point or, per #4, range) with no
+   stated `reference_source` is dropped as an unexplained benchmark, not
+   kept as a fact.
+4. **Range-valued guidance has real fields now**
+   (`observed_value_low`/`_high`, `reference_value_low`/`_high`, all
+   nullable, on `extracted_events` and in the schema) instead of forcing
+   every ranged figure ("$85.0 billion to $87.0 billion") into a single
+   number or dropping it. Deliberately no computed midpoint anywhere, and
+   `surprise_transform.py` is untouched — a range-aware transform is a
+   separate design decision for later; `surprise_transformed` simply
+   stays `NULL` for a range-valued event, same as it already does for a
+   null `observed_value`. The canonicalization fingerprint was extended
+   to include the new range fields too (not explicitly requested, but a
+   direct, necessary consequence: without it, two different ranges
+   sharing a `surprise_type`/`period` would silently collide into one
+   canonical event, since `observed_value`/`reference_value` are both
+   `None` for a range claim).
+5. **Cover-page stubs are a prompt fix, not a canonicalization fix.** The
+   dry run found that a contentless "we filed a press release, see
+   Exhibit 99.1" cover page produces its own `null`-surprise stub event
+   that never canonicalizes with the exhibit's real event (different
+   fingerprints) — two canonical events per catalyst as the normal case
+   for an ordinary earnings 8-K, not one. `extraction_prompt_v1.md` v1.2.0
+   now instructs that a document which only announces or incorporates an
+   exhibit by reference, with no substantive fact of its own, returns an
+   empty `events` array. Canonicalization/fingerprinting itself was
+   deliberately left alone — weakening the fingerprint match to merge a
+   contentless and a substantive event risks merging things that aren't
+   actually the same claim; fixing what counts as an event in the first
+   place is the correct fix.
+
+**Explicitly deferred, not fixed in this round:** a per-company
+filing-volume cap on `edgar_ingest_worker.py` / a document-count cap on
+`extraction_runner.py` (Dry Run 001 pulled in 411 documents scoping to
+just 4 companies, since the worker has no volume control beyond *which*
+companies); measuring real token counts on large documents (Dry Run 001's
+largest exhibit was 1.1MB) before any real paid API call; and the
+candidate-effective-N reporting distinction (multiple candidate rows from
+one relationship aren't independent signals) — a downstream
+analysis/reporting concern, not a pipeline bug. All tracked, not
+forgotten.
+
 ## How to actually run this yourself
 
 You'll need Postgres installed and running, and Python with `psycopg2-binary`,
@@ -459,6 +562,7 @@ createdb diffusion_experiment
 psql -d diffusion_experiment -f schema.sql
 psql -d diffusion_experiment -f migrations/002_extraction_runner.sql
 psql -d diffusion_experiment -f migrations/003_extraction_runner_fixes.sql
+psql -d diffusion_experiment -f migrations/004_range_valued_guidance.sql
 python3 seed_entities.py
 cd tests && python3 -m pytest -v
 ```

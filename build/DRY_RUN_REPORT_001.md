@@ -1,5 +1,41 @@
 # Dry Run 001 — Extraction-Runner Bridge, Real EDGAR Data, No Paid API Calls
 
+> ## Addendum (2026-09-02) — two corrections to what this report establishes
+>
+> A ChatGPT review of this report, independently re-verified before being
+> accepted (same discipline as every other round on this project), caught
+> two things worth stating plainly rather than leaving implicit in the
+> body below (which is otherwise left as originally written):
+>
+> 1. **"84/84 tests passing" (§8) was a weaker claim than it sounded.**
+>    That number was read from `.pytest_cache/v/cache/nodeids` (a set that
+>    only ever grows across some history of runs — it proves 94 [then 84]
+>    distinct tests are *known to exist*, not that they all executed and
+>    passed in *this specific invocation*) and `lastfailed` being `{}`
+>    (which is also only rewritten when it changes, so an old, stale `{}`
+>    looks identical to a fresh one). Neither is real evidence of a single
+>    passing run. The actual fix-round report that follows this one
+>    (dated 2026-09-02) captures real `pytest -v` output and a JUnit XML
+>    file as durable, independently-checkable artifacts instead — see
+>    `build/tests/pytest_run_002.xml` / `pytest_run_002.out.txt` — and
+>    that discipline is now the standard going forward, not cache-file
+>    inference.
+> 2. **This dry run validated pipeline wiring and precision, not
+>    extraction recall/completeness.** The manual extraction below
+>    deliberately extracted only *some* of the true events and
+>    relationships in each document (2 of Lilly's 4 named acquisitions in
+>    §2.6, 1 counterparty per NVIDIA sentence instead of all named ones in
+>    §2.9) to keep the round small enough to review by hand. That's a
+>    legitimate scope choice for testing "do hand-verified facts survive
+>    validation and flow correctly through resolution, canonicalization,
+>    relationship-writing, and candidate generation" — but it means the
+>    unresolved-mention rate in §3 and the candidate counts in §6 are
+>    artifacts of what I *chose* to extract, not a measurement of what a
+>    full-recall extraction over these same documents would produce. Don't
+>    read this report's numbers as representative of real-world recall.
+>
+> Everything below this line is the original report, unchanged.
+
 **Date:** 2026-09-01
 **Database:** `diffusion_experiment_dryrun` (disposable, separate from the pytest-truncated `diffusion_experiment` DB — see setup below)
 **Extractor:** Claude (this session), reading `extraction_prompt_v1.md`'s system + task prompt and each document's real `raw_content` directly, exactly as `AnthropicExtractionClient` would send them — no Anthropic API call was made. Recorded as `extractor_model_id="claude-sonnet-5-manual-dry-run"`, `extractor_model_version="2026-08-31-manual"` in `extraction_runs`.

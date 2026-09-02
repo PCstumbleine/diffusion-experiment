@@ -1,4 +1,4 @@
-# Extraction prompt — version 1.1.0
+# Extraction prompt — version 1.2.0
 
 Used against `raw_documents.raw_content` for every document that passes an
 initial relevance filter. Produces `extracted_events.raw_llm_output` and the
@@ -53,6 +53,16 @@ A single document commonly contains more than one event (e.g., one earnings
 release can contain an earnings surprise AND a guidance revision AND a
 capacity announcement). Extract each as a SEPARATE event object. Do not
 merge distinct economic propositions into one event.
+
+A cover-page or Item 2.02 statement that only announces or incorporates an
+attached exhibit by reference, without itself stating a substantive fact
+(a figure, a named counterparty, a specific commitment), is not an
+extractable event on its own — it is a pointer to one, not one itself.
+Return an empty events array for a document that only does this; extract
+the actual content from the exhibit that carries it instead. A cover page
+that DOES state something substantive on its own (a specific dollar
+figure, a named counterparty, etc., right there on the cover page) should
+still have that fact extracted as an event, same as any other document.
 
 For each event, extract:
 
@@ -120,11 +130,26 @@ For each event, extract:
    percentage change, or any standardized score yourself; a downstream
    script applies the correct transform for this event_type)
      - surprise_type (e.g. "revenue_guidance", "eps_guidance", "order_size")
-     - observed_value, reference_value (the new figure and what it's being
-       compared against)
-     - reference_source (e.g. "company's prior quarter guidance") — for
-       Phase I-A, this must be the company's own prior disclosure, never
-       analyst consensus
+     - observed_value, reference_value: use these two fields ONLY when the
+       document states a single point figure (the new figure and what
+       it's being compared against). If the document instead states a
+       RANGE (e.g. "revenue guidance of $85.0 billion to $87.0 billion"),
+       use observed_value_low/observed_value_high (and, if the prior
+       figure being compared against was also a range,
+       reference_value_low/reference_value_high) instead — never both a
+       point field and a range field for the same figure, and never
+       collapse a stated range into a single number (a midpoint, an
+       endpoint, or any other derived value) yourself. If neither a point
+       nor a range figure is actually stated, leave all six fields null
+       rather than guessing.
+     - reference_source: what the reference/prior figure came from (e.g.
+       "company's prior quarter guidance"). For Phase I-A, this must be
+       the company's own prior disclosure, never analyst consensus. Use
+       null if there is no reference value at all (e.g. a first-time
+       guidance issuance with nothing to compare against) — but if
+       reference_value or either reference_value_low/reference_value_high
+       is non-null, reference_source must also be non-null: a number
+       attributed to no source is not a usable fact.
      - reference_timestamp
      - unit, period
      - evidence_span
@@ -150,7 +175,7 @@ determined from the document, use null rather than guessing.
   "type": "object",
   "properties": {
     "document_id": {"type": "string"},
-    "extraction_prompt_version": {"const": "1.1.0"},
+    "extraction_prompt_version": {"const": "1.2.0"},
     "events": {
       "type": "array",
       "items": {
@@ -206,7 +231,11 @@ determined from the document, use null rather than guessing.
               "surprise_type": {"type": "string"},
               "observed_value": {"type": ["number", "null"]},
               "reference_value": {"type": ["number", "null"]},
-              "reference_source": {"type": "string"},
+              "observed_value_low": {"type": ["number", "null"]},
+              "observed_value_high": {"type": ["number", "null"]},
+              "reference_value_low": {"type": ["number", "null"]},
+              "reference_value_high": {"type": ["number", "null"]},
+              "reference_source": {"type": ["string", "null"]},
               "reference_timestamp": {"type": ["string", "null"]},
               "unit": {"type": ["string", "null"]},
               "period": {"type": ["string", "null"]},
@@ -233,7 +262,12 @@ determined from the document, use null rather than guessing.
 
 - A deterministic script maps `surprise_type` to a row in
   `surprise_transform_registry` and computes `surprise_transformed` —
-  never the LLM.
+  never the LLM. A range-valued event (`observed_value_low`/`_high` set,
+  `observed_value` null) has no transform defined yet — `surprise_
+  transformed` simply stays NULL for it, exactly as it already does today
+  for any event with a null `observed_value`. A range-aware transform is
+  a real, separate design decision for later, not something to improvise
+  by averaging the range here.
 - `raw_llm_relationship_score` is stored as-is in `entity_relationships`.
   `calibrated_p_relationship` stays NULL until an actual calibration model
   exists and is versioned.
@@ -251,6 +285,25 @@ determined from the document, use null rather than guessing.
   `evidence_publicly_available_at`, not asserted by the LLM.
 
 ## Versioning
+
+**1.2.0:** three fixes from a code review of Dry Run 001 (real EDGAR
+data, hand-extracted — see `build/DRY_RUN_REPORT_001.md`):
+  - `reference_source` may now be `null` (previously required a string
+    even when there was genuinely no reference value to attribute) —
+    matches this prompt's own "use null rather than guessing" instruction,
+    which the schema had been silently violating for this one field.
+    Paired with a new provenance rule: a non-null reference value now
+    requires a non-null `reference_source`.
+  - Added `observed_value_low`/`observed_value_high` and
+    `reference_value_low`/`reference_value_high` for range-stated
+    guidance (e.g. "$85.0 billion to $87.0 billion") — previously there
+    was no correct way to represent a real range without either
+    fabricating a single derived number (a midpoint) or leaving real,
+    stated figures out of the structured output entirely.
+  - Added the cover-page/Item-2.02-pointer rule (see the task
+    instructions above): a document that only announces or incorporates
+    an exhibit by reference, with no substantive fact of its own, now
+    returns an empty `events` array instead of a contentless stub event.
 
 **1.1.0:** removed `model_inferred` from `relationship_evidence` (a second
 review round caught it contradicting this prompt's own "must point to a

@@ -20,7 +20,7 @@ import json
 from pathlib import Path
 
 PROMPT_PATH = Path(__file__).parent / "extraction_prompt_v1.md"
-PROMPT_VERSION = "1.1.0"  # must match extraction_prompt_v1.md's own "const" schema value
+PROMPT_VERSION = "1.2.0"  # must match extraction_prompt_v1.md's own "const" schema value
 
 
 def load_prompt_texts(path: Path = PROMPT_PATH) -> tuple[str, str, dict]:

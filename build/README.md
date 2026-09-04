@@ -358,10 +358,11 @@ inside test fixtures; nothing connected a real filing to them. New files:
   full-pipeline idempotency, and atomicity under a forced mid-batch
   failure — bringing the suite to 79 tests total, all passing. (Dry Run
   001's post-dry-run fix round added 15 more, the
-  `--since`/`--max-new-filings-per-company` round added 3 more, and
-  Recall Check 001's fix round added 13 more — see below for all three —
-  for 110 total as of this writing; `build/tests/pytest_run_002.xml`
-  through `pytest_run_004.xml` (each with a matching `.out.txt`) are real,
+  `--since`/`--max-new-filings-per-company` round added 3 more, Recall
+  Check 001's fix round added 13 more, and a subsequent hardening +
+  saved-source-replay round added 10 more — for 120 total as of this
+  writing; `build/tests/pytest_run_002.xml` through `pytest_run_004.xml`,
+  and `pytest_run_006.xml` (each with a matching `.out.txt`) are real,
   captured output for those counts, not inferred from `.pytest_cache`.)
 
 **A live bug found while wiring this up, not in the design doc:** every
@@ -627,8 +628,10 @@ and a second entity-resolution gap, drove these three narrow fixes:
    pipeline stage (post-validation entity resolution, not validation)
    and reads that way to anyone debugging later.
 
-13 new tests, 110 total — `build/tests/pytest_run_004.xml`/`.out.txt` are
-the real, captured output for this count.
+13 new tests, 110 total at the time — `build/tests/pytest_run_004.xml`/
+`.out.txt` are the real, captured output for this count. (Now 120 total
+after a subsequent hardening + saved-source-replay round —
+`build/tests/pytest_run_006.xml`/`.out.txt`.)
 
 ## How to actually run this yourself
 

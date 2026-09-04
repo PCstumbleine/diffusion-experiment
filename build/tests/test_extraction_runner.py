@@ -427,6 +427,63 @@ def test_validate_extraction_output_drops_relationship_with_unmapped_type():
     assert any("does not map to the closed vocabulary" in msg for msg in drop_log)
 
 
+# ---------------------------------------------------------------------------
+# Evidenced relationship_type synonyms (hardening item D, Recall Check 001
+# replay): three real relationship_type strings the independent blind-read
+# extraction actually produced ("acquired", "agreement_to_acquire",
+# "collaboration") weren't in RELATIONSHIP_TYPE_SYNONYMS, so all three
+# relationships were silently dropped at Phase 1 validation before ever
+# reaching entity resolution. Each test below runs the real
+# validate_extraction_output() -- proving the mapped relationship_type
+# survives validation with its canonical value, not just that the dict has
+# the key.
+# ---------------------------------------------------------------------------
+
+def _one_relationship_output(relationship_type):
+    raw_content = "A acquired B. See details here."
+    return {
+        "document_id": "d1", "extraction_prompt_version": PROMPT_VERSION,
+        "events": [{
+            "event_category": "acquisition_or_divestiture", "catalyst_description": "x",
+            "entities": [{"entity_name": "A Co", "role": "issuer", "evidence_span": "A acquired B"}],
+            "relationships": [{
+                "entity_a": "A Co", "entity_b": "B Co", "relationship_type": relationship_type,
+                "relationship_evidence": "explicit_named", "source_authority": "company",
+                "document_explicitly_states_transmission_history": False,
+                "evidence_span": "A acquired B",
+            }],
+            "surprise": None, "explicit_correction": False,
+        }],
+    }, raw_content
+
+
+@pytest.mark.parametrize("given_type,expected_mapped", [
+    ("acquired", "acquirer_target"),
+    ("agreement_to_acquire", "acquirer_target"),
+    ("collaboration", "partner"),
+])
+def test_evidenced_relationship_type_synonym_survives_validation(given_type, expected_mapped):
+    output, raw_content = _one_relationship_output(given_type)
+    cleaned, drop_log = validate_extraction_output(output, raw_content, PROMPT_VERSION, "d1")
+
+    rels = cleaned["events"][0]["relationships"]
+    assert len(rels) == 1  # not dropped
+    assert not any("does not map to the closed vocabulary" in msg for msg in drop_log)
+    assert rels[0]["relationship_type"] == expected_mapped
+    assert rels[0]["entity_a"] == "A Co"  # direction unchanged
+    assert rels[0]["entity_b"] == "B Co"
+
+
+def test_unmapped_relationship_type_is_still_dropped_after_the_new_synonyms():
+    """Negative control: the closed-vocabulary gate itself wasn't weakened
+    by adding the three evidenced synonyms above."""
+    output, raw_content = _one_relationship_output("some totally unknown relationship")
+    cleaned, drop_log = validate_extraction_output(output, raw_content, PROMPT_VERSION, "d1")
+
+    assert cleaned["events"][0]["relationships"] == []
+    assert any("does not map to the closed vocabulary" in msg for msg in drop_log)
+
+
 def test_validate_extraction_output_drops_surprise_with_reference_value_but_no_source():
     """Provenance invariant (code review, post-Dry-Run-001): a reference
     figure with no stated source is an unexplained benchmark, not a fact."""

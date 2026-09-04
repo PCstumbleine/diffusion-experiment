@@ -162,6 +162,23 @@ RELATIONSHIP_TYPE_SYNONYMS = {
     "acquirer_target": "acquirer_target", "acquisition target": "acquirer_target",
     "acquirer": "acquirer_target", "target": "acquirer_target", "merger partner": "acquirer_target",
     "acquisition_or_divestiture": "acquirer_target",
+    # Three evidenced additions (code review, Recall Check 001 replay --
+    # real relationship_type strings the independent blind-read extraction
+    # actually produced, not speculative vocabulary): "acquired" is just
+    # the past-tense surface form of "acquirer" (already mapped above) --
+    # same direction, entity_a acquired entity_b means a is acquirer, b is
+    # target. "agreement_to_acquire" describes a pending rather than
+    # completed transaction but the same direction -- the vocabulary
+    # already conflates pending/completed acquisition phrasing under
+    # acquirer_target ("acquirer", "acquisition target", "target",
+    # "merger partner" are all already there), so this isn't a new
+    # distinction, just a missing surface form of an existing one.
+    # "collaboration" is a synonym of "joint venture" / "alliance"
+    # (already mapped to "partner"), and partner is documented as
+    # direction-symmetric, so there's no directionality risk here either.
+    "acquired": "acquirer_target",
+    "agreement_to_acquire": "acquirer_target",
+    "collaboration": "partner",
 }
 
 ELIGIBILITY_POLICY_VERSION = "candidate_eligibility_v1"

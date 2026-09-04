@@ -1,0 +1,834 @@
+{
+  "document_id": "q226lillysalesandearningsp.htm",
+  "extraction_prompt_version": "1.2.0",
+  "events": [
+    {
+      "event_category": "earnings_surprise",
+      "catalyst_description": "Lilly reported Q2 2026 revenue of $23.0 billion, up 48%, driven primarily by Mounjaro and Zepbound volume.",
+      "entities": [
+        {
+          "entity_name": "Eli Lilly and Company",
+          "role": "issuer",
+          "evidence_span": "Eli Lilly and Company (NYSE&#58; LLY) today announced its financial results for the second quarter of 2026 and provided updated 2026 financial guidance."
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "q2_revenue",
+        "observed_value": 23.0,
+        "reference_value": null,
+        "observed_value_low": null,
+        "observed_value_high": null,
+        "reference_value_low": null,
+        "reference_value_high": null,
+        "reference_source": null,
+        "reference_timestamp": null,
+        "unit": "USD billion",
+        "period": "Q2 2026",
+        "evidence_span": "Revenue in Q2 2026 increased 48% to $23.0 billion driven primarily by Mounjaro and Zepbound volume."
+      },
+      "source_published_at": "August&#160;5, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "earnings_surprise",
+      "catalyst_description": "Lilly reported Q2 2026 reported-basis EPS of $7.94, up 26%.",
+      "entities": [
+        {
+          "entity_name": "Eli Lilly and Company",
+          "role": "issuer",
+          "evidence_span": "Eli Lilly and Company (NYSE&#58; LLY) today announced its financial results for the second quarter of 2026 and provided updated 2026 financial guidance."
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "reported_eps",
+        "observed_value": 7.94,
+        "reference_value": null,
+        "observed_value_low": null,
+        "observed_value_high": null,
+        "reference_value_low": null,
+        "reference_value_high": null,
+        "reference_source": null,
+        "reference_timestamp": null,
+        "unit": "USD per share",
+        "period": "Q2 2026",
+        "evidence_span": "Q2 2026 EPS increased by 26% to $7.94 on a reported basis"
+      },
+      "source_published_at": "August&#160;5, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "earnings_surprise",
+      "catalyst_description": "Lilly reported Q2 2026 non-GAAP EPS of $8.38, up 33%.",
+      "entities": [
+        {
+          "entity_name": "Eli Lilly and Company",
+          "role": "issuer",
+          "evidence_span": "Eli Lilly and Company (NYSE&#58; LLY) today announced its financial results for the second quarter of 2026 and provided updated 2026 financial guidance."
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "non_gaap_eps",
+        "observed_value": 8.38,
+        "reference_value": null,
+        "observed_value_low": null,
+        "observed_value_high": null,
+        "reference_value_low": null,
+        "reference_value_high": null,
+        "reference_source": null,
+        "reference_timestamp": null,
+        "unit": "USD per share",
+        "period": "Q2 2026",
+        "evidence_span": "increased by 33% to $8.38 on a non-GAAP basis"
+      },
+      "source_published_at": "August&#160;5, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "guidance_revision",
+      "catalyst_description": "Lilly raised full-year 2026 revenue guidance from $82-$85 billion to $85-$87 billion.",
+      "entities": [
+        {
+          "entity_name": "Eli Lilly and Company",
+          "role": "issuer",
+          "evidence_span": "Eli Lilly and Company (NYSE&#58; LLY) today announced its financial results for the second quarter of 2026 and provided updated 2026 financial guidance."
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "revenue_guidance",
+        "observed_value": null,
+        "reference_value": null,
+        "observed_value_low": 85.0,
+        "observed_value_high": 87.0,
+        "reference_value_low": 82.0,
+        "reference_value_high": 85.0,
+        "reference_source": "company's prior full-year 2026 guidance",
+        "reference_timestamp": null,
+        "unit": "USD billion",
+        "period": "FY 2026",
+        "evidence_span": "<tr>\\<td colspan=\"3\" style=\"border-left:1pt solid #000;padding:2.62pt 1pt 1.5pt 1pt;text-align\\:left;vertical-align\\:bottom\">\\<font style=\"color:#000000;font-family:'Arial',sans-serif;font-size:10pt;font-weight:400;line-height:100%\">Revenue\\</font>\\</td>\\<td colspan=\"3\" style=\"padding:0 1pt\">\\</td>\\<td colspan=\"3\" style=\"padding:0 1pt\">\\</td>\\<td colspan=\"3\" style=\"padding:2.62pt 1pt 1.5pt 1pt;text-align\\:center;vertical-align\\:bottom\">\\<font style=\"color:#000000;font-family:'Arial',sans-serif;font-size:10pt;font-weight:400;line-height:100%\">$82 to $85 billion\\</font>\\</td>\\<td colspan=\"3\" style=\"border-right:1pt solid #000;padding:2.62pt 1pt 1.5pt 1pt;text-align\\:center;vertical-align\\:bottom\">\\<font style=\"color:#000000;font-family:'Arial',sans-serif;font-size:10pt;font-weight:400;line-height:100%\">$85 to $87 billion\\</font>\\</td>\\</tr>"
+      },
+      "source_published_at": "August&#160;5, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "guidance_revision",
+      "catalyst_description": "Lilly updated full-year 2026 non-GAAP EPS guidance from $35.50-$37.00 to $35.50-$36.50 after underlying improvement was more than offset by acquired IPR&D charges.",
+      "entities": [
+        {
+          "entity_name": "Eli Lilly and Company",
+          "role": "issuer",
+          "evidence_span": "Eli Lilly and Company (NYSE&#58; LLY) today announced its financial results for the second quarter of 2026 and provided updated 2026 financial guidance."
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "eps_guidance",
+        "observed_value": null,
+        "reference_value": null,
+        "observed_value_low": 35.5,
+        "observed_value_high": 36.5,
+        "reference_value_low": 35.5,
+        "reference_value_high": 37.0,
+        "reference_source": "company's prior full-year 2026 guidance",
+        "reference_timestamp": null,
+        "unit": "USD per share",
+        "period": "FY 2026",
+        "evidence_span": "<tr>\\<td colspan=\"3\" style=\"border-left:1pt solid #000;padding:2.62pt 1pt 1.5pt 1pt;text-align\\:left;vertical-align\\:bottom\">\\<div>\\<font style=\"color:#000000;font-family:'Arial',sans-serif;font-size:10pt;font-weight:400;line-height:100%\">Earnings per Share\\</font>\\<font style=\"color:#000000;font-family:'Arial',sans-serif;font-size:6.5pt;font-weight:400;line-height:100%;position\\:relative;top:-3.5pt;vertical-align\\:baseline\">(1)(3)(4)\\</font>\\</div>\\</td>\\<td colspan=\"3\" style=\"padding:0 1pt\">\\</td>\\<td colspan=\"3\" style=\"padding:0 1pt\">\\</td>\\<td colspan=\"3\" style=\"padding:2.62pt 1pt 1.5pt 1pt;text-align\\:center;vertical-align\\:bottom\">\\<font style=\"color:#000000;font-family:'Arial',sans-serif;font-size:10pt;font-weight:400;line-height:100%\">$35.50 to $37.00\\</font>\\</td>\\<td colspan=\"3\" style=\"border-right:1pt solid #000;padding:2.62pt 1pt 1.5pt 1pt;text-align\\:center;vertical-align\\:bottom\">\\<font style=\"color:#000000;font-family:'Arial',sans-serif;font-size:10pt;font-weight:400;line-height:100%\">$35.50 to $36.50\\</font>\\</td>\\</tr>"
+      },
+      "source_published_at": "August&#160;5, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "other_material_event",
+      "catalyst_description": "The U.S. FDA approved Ebglyss for an every-eight-weeks maintenance dose in moderate-to-severe atopic dermatitis.",
+      "entities": [
+        {
+          "entity_name": "Eli Lilly and Company",
+          "role": "issuer",
+          "evidence_span": "Eli Lilly and Company (NYSE&#58; LLY) today announced its financial results for the second quarter of 2026 and provided updated 2026 financial guidance."
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "approved_maintenance_interval",
+        "observed_value": 8,
+        "reference_value": null,
+        "observed_value_low": null,
+        "observed_value_high": null,
+        "reference_value_low": null,
+        "reference_value_high": null,
+        "reference_source": null,
+        "reference_timestamp": null,
+        "unit": "weeks",
+        "period": null,
+        "evidence_span": "U.S. FDA approval of Ebglyss for one maintenance dose every eight weeks in moderate-to-severe atopic dermatitis"
+      },
+      "source_published_at": "August&#160;5, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "other_material_event",
+      "catalyst_description": "The European Commission approved Jaypirca as monotherapy for adults with chronic lymphocytic leukemia across all lines of therapy.",
+      "entities": [
+        {
+          "entity_name": "Eli Lilly and Company",
+          "role": "issuer",
+          "evidence_span": "Eli Lilly and Company (NYSE&#58; LLY) today announced its financial results for the second quarter of 2026 and provided updated 2026 financial guidance."
+        }
+      ],
+      "relationships": [],
+      "surprise": null,
+      "source_published_at": "August&#160;5, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "other_material_event",
+      "catalyst_description": "Lilly submitted orforglipron for type 2 diabetes in the U.S.",
+      "entities": [
+        {
+          "entity_name": "Eli Lilly and Company",
+          "role": "issuer",
+          "evidence_span": "Eli Lilly and Company (NYSE&#58; LLY) today announced its financial results for the second quarter of 2026 and provided updated 2026 financial guidance."
+        }
+      ],
+      "relationships": [],
+      "surprise": null,
+      "source_published_at": "August&#160;5, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "other_material_event",
+      "catalyst_description": "Lilly reported positive data from three additional Phase 3 retatrutide obesity trials and said the clinical data package was complete to support global registrations.",
+      "entities": [
+        {
+          "entity_name": "Eli Lilly and Company",
+          "role": "issuer",
+          "evidence_span": "Eli Lilly and Company (NYSE&#58; LLY) today announced its financial results for the second quarter of 2026 and provided updated 2026 financial guidance."
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "phase3_trial_count",
+        "observed_value": 3,
+        "reference_value": null,
+        "observed_value_low": null,
+        "observed_value_high": null,
+        "reference_value_low": null,
+        "reference_value_high": null,
+        "reference_source": null,
+        "reference_timestamp": null,
+        "unit": "Phase 3 trials",
+        "period": null,
+        "evidence_span": "Pipeline highlights included positive data from three additional Phase 3 trials of retatrutide in obesity. The clinical data package is now complete to support global registrations for obesity, obstructive sleep apnea, and knee osteoarthritis pain, with plans to submit a Biologics License Application to the U.S. FDA in the first quarter of 2027."
+      },
+      "source_published_at": "August&#160;5, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "acquisition_or_divestiture",
+      "catalyst_description": "Lilly completed the acquisition of Orna Therapeutics, Inc.",
+      "entities": [
+        {
+          "entity_name": "Eli Lilly and Company",
+          "role": "issuer",
+          "evidence_span": "Eli Lilly and Company (NYSE&#58; LLY) today announced its financial results for the second quarter of 2026 and provided updated 2026 financial guidance."
+        },
+        {
+          "entity_name": "Orna Therapeutics, Inc.",
+          "role": "target",
+          "evidence_span": "Business development activity in Q2 2026 included the completed acquisitions of Orna Therapeutics, Inc., Ajax Therapeutics, Inc., Centessa Pharmaceuticals plc. and Kelonia Therapeutics, Inc."
+        }
+      ],
+      "relationships": [],
+      "surprise": null,
+      "source_published_at": "August&#160;5, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "acquisition_or_divestiture",
+      "catalyst_description": "Lilly completed the acquisition of Ajax Therapeutics, Inc.",
+      "entities": [
+        {
+          "entity_name": "Eli Lilly and Company",
+          "role": "issuer",
+          "evidence_span": "Eli Lilly and Company (NYSE&#58; LLY) today announced its financial results for the second quarter of 2026 and provided updated 2026 financial guidance."
+        },
+        {
+          "entity_name": "Ajax Therapeutics, Inc.",
+          "role": "target",
+          "evidence_span": "Business development activity in Q2 2026 included the completed acquisitions of Orna Therapeutics, Inc., Ajax Therapeutics, Inc., Centessa Pharmaceuticals plc. and Kelonia Therapeutics, Inc."
+        }
+      ],
+      "relationships": [],
+      "surprise": null,
+      "source_published_at": "August&#160;5, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "acquisition_or_divestiture",
+      "catalyst_description": "Lilly completed the acquisition of Centessa Pharmaceuticals.",
+      "entities": [
+        {
+          "entity_name": "Lilly",
+          "role": "buyer",
+          "evidence_span": "Lilly completes acquisition of Centessa Pharmaceuticals to advance treatments for sleep-wake disorders"
+        },
+        {
+          "entity_name": "Centessa Pharmaceuticals",
+          "role": "target",
+          "evidence_span": "Lilly completes acquisition of Centessa Pharmaceuticals to advance treatments for sleep-wake disorders"
+        }
+      ],
+      "relationships": [
+        {
+          "entity_a": "Lilly",
+          "entity_b": "Centessa Pharmaceuticals",
+          "relationship_type": "acquired",
+          "relationship_evidence": "explicit_named",
+          "source_authority": "regulatory_filing",
+          "document_explicitly_states_transmission_history": false,
+          "transmission_history_evidence_span": null,
+          "raw_llm_relationship_score": 0.99,
+          "evidence_span": "Lilly completes acquisition of Centessa Pharmaceuticals to advance treatments for sleep-wake disorders"
+        }
+      ],
+      "surprise": null,
+      "source_published_at": "August&#160;5, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "acquisition_or_divestiture",
+      "catalyst_description": "Lilly completed the acquisition of Kelonia Therapeutics, Inc.",
+      "entities": [
+        {
+          "entity_name": "Eli Lilly and Company",
+          "role": "issuer",
+          "evidence_span": "Eli Lilly and Company (NYSE&#58; LLY) today announced its financial results for the second quarter of 2026 and provided updated 2026 financial guidance."
+        },
+        {
+          "entity_name": "Kelonia Therapeutics, Inc.",
+          "role": "target",
+          "evidence_span": "Business development activity in Q2 2026 included the completed acquisitions of Orna Therapeutics, Inc., Ajax Therapeutics, Inc., Centessa Pharmaceuticals plc. and Kelonia Therapeutics, Inc."
+        }
+      ],
+      "relationships": [],
+      "surprise": null,
+      "source_published_at": "August&#160;5, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "acquisition_or_divestiture",
+      "catalyst_description": "After quarter-end, Lilly completed three acquisitions to build an infectious disease portfolio.",
+      "entities": [
+        {
+          "entity_name": "Eli Lilly and Company",
+          "role": "issuer",
+          "evidence_span": "Eli Lilly and Company (NYSE&#58; LLY) today announced its financial results for the second quarter of 2026 and provided updated 2026 financial guidance."
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "acquisition_count",
+        "observed_value": 3,
+        "reference_value": null,
+        "observed_value_low": null,
+        "observed_value_high": null,
+        "reference_value_low": null,
+        "reference_value_high": null,
+        "reference_source": null,
+        "reference_timestamp": null,
+        "unit": "acquisitions",
+        "period": "subsequent to Q2 2026 quarter-end",
+        "evidence_span": "Subsequent to quarter end, we completed three acquisitions to build an infectious disease portfolio"
+      },
+      "source_published_at": "August&#160;5, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "acquisition_or_divestiture",
+      "catalyst_description": "Lilly entered into an agreement to acquire AtaiBeckley.",
+      "entities": [
+        {
+          "entity_name": "Lilly",
+          "role": "buyer",
+          "evidence_span": "Lilly to acquire AtaiBeckley to advance therapies for treatment-resistant depression and other mental health conditions"
+        },
+        {
+          "entity_name": "AtaiBeckley",
+          "role": "target",
+          "evidence_span": "Lilly to acquire AtaiBeckley to advance therapies for treatment-resistant depression and other mental health conditions"
+        }
+      ],
+      "relationships": [
+        {
+          "entity_a": "Lilly",
+          "entity_b": "AtaiBeckley",
+          "relationship_type": "agreement_to_acquire",
+          "relationship_evidence": "explicit_named",
+          "source_authority": "regulatory_filing",
+          "document_explicitly_states_transmission_history": false,
+          "transmission_history_evidence_span": null,
+          "raw_llm_relationship_score": 0.99,
+          "evidence_span": "Lilly to acquire AtaiBeckley to advance therapies for treatment-resistant depression and other mental health conditions"
+        }
+      ],
+      "surprise": null,
+      "source_published_at": "August&#160;5, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "capacity_change",
+      "catalyst_description": "Lilly committed an additional $4.5 billion to expand Indiana manufacturing sites.",
+      "entities": [
+        {
+          "entity_name": "Eli Lilly and Company",
+          "role": "issuer",
+          "evidence_span": "Eli Lilly and Company (NYSE&#58; LLY) today announced its financial results for the second quarter of 2026 and provided updated 2026 financial guidance."
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "manufacturing_commitment",
+        "observed_value": 4.5,
+        "reference_value": null,
+        "observed_value_low": null,
+        "observed_value_high": null,
+        "reference_value_low": null,
+        "reference_value_high": null,
+        "reference_source": null,
+        "reference_timestamp": null,
+        "unit": "USD billion",
+        "period": null,
+        "evidence_span": "Committed an additional $4.5 billion to expand Indiana manufacturing sites."
+      },
+      "source_published_at": "August&#160;5, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "other_material_event",
+      "catalyst_description": "Mounjaro was added to China's National Reimbursement Drug List, which Lilly said drove lower realized prices outside the U.S.",
+      "entities": [
+        {
+          "entity_name": "Eli Lilly and Company",
+          "role": "issuer",
+          "evidence_span": "Eli Lilly and Company (NYSE&#58; LLY) today announced its financial results for the second quarter of 2026 and provided updated 2026 financial guidance."
+        }
+      ],
+      "relationships": [],
+      "surprise": null,
+      "source_published_at": "August&#160;5, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "other_material_event",
+      "catalyst_description": "Jardiance revenue outside the U.S. included a $250 million sales-based milestone associated with Lilly's collaboration with Boehringer Ingelheim.",
+      "entities": [
+        {
+          "entity_name": "Eli Lilly and Company",
+          "role": "issuer",
+          "evidence_span": "Eli Lilly and Company (NYSE&#58; LLY) today announced its financial results for the second quarter of 2026 and provided updated 2026 financial guidance."
+        },
+        {
+          "entity_name": "Boehringer Ingelheim",
+          "role": "partner",
+          "evidence_span": "Jardiance revenue outside the U.S. included a sales-based milestone of $250 million in Q2 2026, associated with the company's collaboration with Boehringer Ingelheim."
+        }
+      ],
+      "relationships": [
+        {
+          "entity_a": "Eli Lilly and Company",
+          "entity_b": "Boehringer Ingelheim",
+          "relationship_type": "collaboration",
+          "relationship_evidence": "quantified_named",
+          "source_authority": "regulatory_filing",
+          "document_explicitly_states_transmission_history": false,
+          "transmission_history_evidence_span": null,
+          "raw_llm_relationship_score": 0.98,
+          "evidence_span": "Jardiance revenue outside the U.S. included a sales-based milestone of $250 million in Q2 2026, associated with the company's collaboration with Boehringer Ingelheim."
+        }
+      ],
+      "surprise": {
+        "surprise_type": "sales_based_milestone",
+        "observed_value": 250,
+        "reference_value": null,
+        "observed_value_low": null,
+        "observed_value_high": null,
+        "reference_value_low": null,
+        "reference_value_high": null,
+        "reference_source": null,
+        "reference_timestamp": null,
+        "unit": "USD million",
+        "period": "Q2 2026",
+        "evidence_span": "Jardiance revenue outside the U.S. included a sales-based milestone of $250 million in Q2 2026, associated with the company's collaboration with Boehringer Ingelheim."
+      },
+      "source_published_at": "August&#160;5, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "other_material_event",
+      "catalyst_description": "CHMP recommended Jaypirca for approval in the European Union for adults with CLL across all lines of therapy.",
+      "entities": [
+        {
+          "entity_name": "Lilly",
+          "role": "issuer",
+          "evidence_span": "Lilly's Jaypirca (pirtobrutinib) recommended by CHMP for approval in the European Union for adults with chronic lymphocytic leukemia (CLL) across all lines of therapy"
+        }
+      ],
+      "relationships": [],
+      "surprise": null,
+      "source_published_at": "August&#160;5, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "other_material_event",
+      "catalyst_description": "Olomorasib received U.S. FDA Breakthrough Therapy designation for previously treated KRAS G12C-mutant advanced pancreatic cancer.",
+      "entities": [
+        {
+          "entity_name": "Lilly",
+          "role": "issuer",
+          "evidence_span": "Lilly's olomorasib receives U.S. FDA's Breakthrough Therapy designation for the treatment of previously treated KRAS G12C-mutant advanced pancreatic cancer"
+        }
+      ],
+      "relationships": [],
+      "surprise": null,
+      "source_published_at": "August&#160;5, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "other_material_event",
+      "catalyst_description": "Retatrutide was successful in two additional Phase 3 obesity trials with significant improvements in weight and A1C.",
+      "entities": [
+        {
+          "entity_name": "Lilly",
+          "role": "issuer",
+          "evidence_span": "Lilly's triple agonist, retatrutide, successful in two additional Phase 3 obesity trials, delivering significant improvements in weight and A1C"
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "phase3_trial_count",
+        "observed_value": 2,
+        "reference_value": null,
+        "observed_value_low": null,
+        "observed_value_high": null,
+        "reference_value_low": null,
+        "reference_value_high": null,
+        "reference_source": null,
+        "reference_timestamp": null,
+        "unit": "Phase 3 trials",
+        "period": null,
+        "evidence_span": "Lilly's triple agonist, retatrutide, successful in two additional Phase 3 obesity trials, delivering significant improvements in weight and A1C"
+      },
+      "source_published_at": "August&#160;5, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "other_material_event",
+      "catalyst_description": "Jaypirca reduced the risk of disease progression or death by 45% when added to a venetoclax time-limited regimen in previously treated CLL/SLL.",
+      "entities": [
+        {
+          "entity_name": "Lilly",
+          "role": "issuer",
+          "evidence_span": "Lilly's Jaypirca (pirtobrutinib) significantly reduced the risk of disease progression or death by 45% when added to a venetoclax time-limited regimen in people with previously treated CLL&#47;SLL"
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "risk_reduction",
+        "observed_value": 45,
+        "reference_value": null,
+        "observed_value_low": null,
+        "observed_value_high": null,
+        "reference_value_low": null,
+        "reference_value_high": null,
+        "reference_source": null,
+        "reference_timestamp": null,
+        "unit": "percent reduction in risk of disease progression or death",
+        "period": null,
+        "evidence_span": "Lilly's Jaypirca (pirtobrutinib) significantly reduced the risk of disease progression or death by 45% when added to a venetoclax time-limited regimen in people with previously treated CLL&#47;SLL"
+      },
+      "source_published_at": "August&#160;5, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "other_material_event",
+      "catalyst_description": "Foundayo delivered superior A1C control and weight loss in three pivotal type 2 diabetes trials.",
+      "entities": [
+        {
+          "entity_name": "Lilly",
+          "role": "issuer",
+          "evidence_span": "Lilly's oral GLP-1 Foundayo (orforglipron) delivered superior A1C control and weight loss in three pivotal type 2 diabetes trials"
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "pivotal_trial_count",
+        "observed_value": 3,
+        "reference_value": null,
+        "observed_value_low": null,
+        "observed_value_high": null,
+        "reference_value_low": null,
+        "reference_value_high": null,
+        "reference_source": null,
+        "reference_timestamp": null,
+        "unit": "pivotal trials",
+        "period": null,
+        "evidence_span": "Lilly's oral GLP-1 Foundayo (orforglipron) delivered superior A1C control and weight loss in three pivotal type 2 diabetes trials"
+      },
+      "source_published_at": "August&#160;5, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "other_material_event",
+      "catalyst_description": "Foundayo was associated with significant weight loss in women at every stage of menopause.",
+      "entities": [
+        {
+          "entity_name": "Lilly",
+          "role": "issuer",
+          "evidence_span": "Lilly's Foundayo (orforglipron), the only oral GLP-1 taken without food or water restrictions, was associated with significant weight loss in women at every stage of menopause"
+        }
+      ],
+      "relationships": [],
+      "surprise": null,
+      "source_published_at": "August&#160;5, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "other_material_event",
+      "catalyst_description": "Retatrutide produced substantial improvements in weight, A1C, knee osteoarthritis pain, and obstructive sleep apnea.",
+      "entities": [
+        {
+          "entity_name": "Lilly",
+          "role": "issuer",
+          "evidence_span": "Lilly's triple agonist, retatrutide, drove substantial improvements in weight, A1C, knee osteoarthritis pain, and obstructive sleep apnea, demonstrating its remarkable potential to treat obesity and its complications"
+        }
+      ],
+      "relationships": [],
+      "surprise": null,
+      "source_published_at": "August&#160;5, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "other_material_event",
+      "catalyst_description": "Retevmo demonstrated an 83% reduction in the risk of disease recurrence or death as adjuvant therapy in early-stage RET fusion-positive lung cancer.",
+      "entities": [
+        {
+          "entity_name": "Lilly",
+          "role": "issuer",
+          "evidence_span": "Lilly's Retevmo (selpercatinib) demonstrated an 83% reduction in the risk of disease recurrence or death as adjuvant therapy for people with early-stage RET fusion-positive lung cancer"
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "risk_reduction",
+        "observed_value": 83,
+        "reference_value": null,
+        "observed_value_low": null,
+        "observed_value_high": null,
+        "reference_value_low": null,
+        "reference_value_high": null,
+        "reference_source": null,
+        "reference_timestamp": null,
+        "unit": "percent reduction in risk of disease recurrence or death",
+        "period": null,
+        "evidence_span": "Lilly's Retevmo (selpercatinib) demonstrated an 83% reduction in the risk of disease recurrence or death as adjuvant therapy for people with early-stage RET fusion-positive lung cancer"
+      },
+      "source_published_at": "August&#160;5, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "other_material_event",
+      "catalyst_description": "A single dose of VERVE-102 reduced PCSK9 by up to 88%.",
+      "entities": [
+        {
+          "entity_name": "Lilly",
+          "role": "issuer",
+          "evidence_span": "A single dose of Lilly's PCSK9 base editor, VERVE-102, reduced PCSK9 by up to 88% and LDL-C by up to 62%, with durable effects supporting its potential as a one-time treatment for hypercholesterolemia"
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "pcsk9_reduction",
+        "observed_value": 88,
+        "reference_value": null,
+        "observed_value_low": null,
+        "observed_value_high": null,
+        "reference_value_low": null,
+        "reference_value_high": null,
+        "reference_source": null,
+        "reference_timestamp": null,
+        "unit": "percent, up to",
+        "period": null,
+        "evidence_span": "A single dose of Lilly's PCSK9 base editor, VERVE-102, reduced PCSK9 by up to 88% and LDL-C by up to 62%, with durable effects supporting its potential as a one-time treatment for hypercholesterolemia"
+      },
+      "source_published_at": "August&#160;5, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "other_material_event",
+      "catalyst_description": "A single dose of VERVE-102 reduced LDL-C by up to 62%.",
+      "entities": [
+        {
+          "entity_name": "Lilly",
+          "role": "issuer",
+          "evidence_span": "A single dose of Lilly's PCSK9 base editor, VERVE-102, reduced PCSK9 by up to 88% and LDL-C by up to 62%, with durable effects supporting its potential as a one-time treatment for hypercholesterolemia"
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "ldl_c_reduction",
+        "observed_value": 62,
+        "reference_value": null,
+        "observed_value_low": null,
+        "observed_value_high": null,
+        "reference_value_low": null,
+        "reference_value_high": null,
+        "reference_source": null,
+        "reference_timestamp": null,
+        "unit": "percent, up to",
+        "period": null,
+        "evidence_span": "A single dose of Lilly's PCSK9 base editor, VERVE-102, reduced PCSK9 by up to 88% and LDL-C by up to 62%, with durable effects supporting its potential as a one-time treatment for hypercholesterolemia"
+      },
+      "source_published_at": "August&#160;5, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "other_material_event",
+      "catalyst_description": "Retatrutide delivered powerful weight loss in a pivotal Phase 3 obesity trial.",
+      "entities": [
+        {
+          "entity_name": "Lilly",
+          "role": "issuer",
+          "evidence_span": "Lilly's triple agonist, retatrutide, delivered powerful weight loss in pivotal Phase 3 obesity trial"
+        }
+      ],
+      "relationships": [],
+      "surprise": null,
+      "source_published_at": "August&#160;5, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "other_material_event",
+      "catalyst_description": "Foundayo and lower-dose Zepbound helped maintain weight loss after switching from higher-dose injectable incretin therapy in two late-phase trials.",
+      "entities": [
+        {
+          "entity_name": "Lilly",
+          "role": "issuer",
+          "evidence_span": "Lilly's Foundayo and lower-dose Zepbound helped people maintain weight loss after switching from higher doses of injectable incretin therapy in two late-phase trials"
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "late_phase_trial_count",
+        "observed_value": 2,
+        "reference_value": null,
+        "observed_value_low": null,
+        "observed_value_high": null,
+        "reference_value_low": null,
+        "reference_value_high": null,
+        "reference_source": null,
+        "reference_timestamp": null,
+        "unit": "late-phase trials",
+        "period": null,
+        "evidence_span": "Lilly's Foundayo and lower-dose Zepbound helped people maintain weight loss after switching from higher doses of injectable incretin therapy in two late-phase trials"
+      },
+      "source_published_at": "August&#160;5, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "other_material_event",
+      "catalyst_description": "Omvoh demonstrated durable disease clearance in ulcerative colitis through four years.",
+      "entities": [
+        {
+          "entity_name": "Lilly",
+          "role": "issuer",
+          "evidence_span": "Lilly's Omvoh (mirikizumab-mrkz) is the first and only IL-23p19 to demonstrate durable disease clearance in ulcerative colitis through four years"
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "durability_duration",
+        "observed_value": 4,
+        "reference_value": null,
+        "observed_value_low": null,
+        "observed_value_high": null,
+        "reference_value_low": null,
+        "reference_value_high": null,
+        "reference_source": null,
+        "reference_timestamp": null,
+        "unit": "years",
+        "period": null,
+        "evidence_span": "Lilly's Omvoh (mirikizumab-mrkz) is the first and only IL-23p19 to demonstrate durable disease clearance in ulcerative colitis through four years"
+      },
+      "source_published_at": "August&#160;5, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "other_material_event",
+      "catalyst_description": "Foundayo and Zepbound became covered for millions of Americans.",
+      "entities": [
+        {
+          "entity_name": "Eli Lilly and Company",
+          "role": "issuer",
+          "evidence_span": "Eli Lilly and Company (NYSE&#58; LLY) today announced its financial results for the second quarter of 2026 and provided updated 2026 financial guidance."
+        }
+      ],
+      "relationships": [],
+      "surprise": null,
+      "source_published_at": "August&#160;5, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "capacity_change",
+      "catalyst_description": "Lilly opened its first dedicated genetic medicine facility.",
+      "entities": [
+        {
+          "entity_name": "Lilly",
+          "role": "issuer",
+          "evidence_span": "Lilly commits additional $4.5 billion across Indiana manufacturing sites, opens first dedicated genetic medicine facility"
+        }
+      ],
+      "relationships": [],
+      "surprise": null,
+      "source_published_at": "August&#160;5, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "guidance_revision",
+      "catalyst_description": "Lilly raised full-year 2026 performance-margin guidance from 47.0%-48.5% to 49.0%-50.5%.",
+      "entities": [
+        {
+          "entity_name": "Eli Lilly and Company",
+          "role": "issuer",
+          "evidence_span": "Eli Lilly and Company (NYSE&#58; LLY) today announced its financial results for the second quarter of 2026 and provided updated 2026 financial guidance."
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "performance_margin_guidance",
+        "observed_value": null,
+        "reference_value": null,
+        "observed_value_low": 49.0,
+        "observed_value_high": 50.5,
+        "reference_value_low": 47.0,
+        "reference_value_high": 48.5,
+        "reference_source": "company's prior full-year 2026 guidance",
+        "reference_timestamp": null,
+        "unit": "percent",
+        "period": "FY 2026",
+        "evidence_span": "<tr>\\<td colspan=\"3\" style=\"border-left:1pt solid #000;padding:2.62pt 1pt 1.5pt 1pt;text-align\\:left;vertical-align\\:bottom\">\\<div>\\<font style=\"color:#000000;font-family:'Arial',sans-serif;font-size:10pt;font-weight:400;line-height:100%\">Performance Margin\\</font>\\<font style=\"color:#000000;font-family:'Arial',sans-serif;font-size:6.5pt;font-weight:400;line-height:100%;position\\:relative;top:-3.5pt;vertical-align\\:baseline\">(1)(2)\\</font>\\</div>\\</td>\\<td colspan=\"3\" style=\"padding:0 1pt\">\\</td>\\<td colspan=\"3\" style=\"padding:0 1pt\">\\</td>\\<td colspan=\"3\" style=\"padding:2.62pt 1pt 1.5pt 1pt;text-align\\:center;vertical-align\\:bottom\">\\<font style=\"color:#000000;font-family:'Arial',sans-serif;font-size:10pt;font-weight:400;line-height:100%\">47.0% to 48.5%\\</font>\\</td>\\<td colspan=\"3\" style=\"border-right:1pt solid #000;padding:2.62pt 1pt 1.5pt 1pt;text-align\\:center;vertical-align\\:bottom\">\\<font style=\"color:#000000;font-family:'Arial',sans-serif;font-size:10pt;font-weight:400;line-height:100%\">49.0% to 50.5%\\</font>\\</td>\\</tr>"
+      },
+      "source_published_at": "August&#160;5, 2026",
+      "explicit_correction": false
+    }
+  ],
+  "unsupported_claims_noted": [
+    "Pronoun-mediated acquisition relationships for Orna Therapeutics, Inc., Ajax Therapeutics, Inc., and Kelonia Therapeutics, Inc. were not forced into entity_relationships because the allowed relationship_evidence enum has no clean value for prose that names the target but refers to Lilly only as 'we'/'the company'. The acquisition events and target entities are still extracted.",
+    "The announcement 'What Medicare Part D patients need to know about accessing Foundayo (orforglipron) and Zepbound (tirzepatide) for weight management' was not extracted because the title is a pointer/topic label and does not itself state a substantive economic fact.",
+    "Previously announced cash-pay price reductions for Zepbound are mentioned without amount, date, or a clean self-contained event statement; I left them out rather than fabricate detail."
+  ]
+}

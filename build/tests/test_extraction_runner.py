@@ -22,7 +22,7 @@ from extraction_runner import (
     extract_document, claim_extraction_run, process_catalyst, run_extraction_pass,
     validate_extraction_output, classify_relationship_eligibility,
     generate_candidates_for_event_version, ExtractionValidationError,
-    _verify_evidence_span, _repair_escaped_punctuation,
+    _verify_evidence_span, _repair_escaped_punctuation, _normalize_unresolved_actor_name,
 )
 from llm_client import PROMPT_VERSION  # kept in sync with extraction_prompt_v1.md's schema automatically
 
@@ -201,6 +201,325 @@ def test_cover_page_with_empty_events_contributes_nothing_and_exhibit_event_stan
         )
         linked_docs = {str(r[0]) for r in cur.fetchall()}
     assert linked_docs == {doc_ids["exhibit"]}  # the cover page contributed nothing
+
+
+# ---------------------------------------------------------------------------
+# Canonicalization actor-signature + merge-witness (Round 2 fix, post-
+# Recall-Check-001 replay's known-bug characterization). Two independent
+# problems: (1) an unresolved entity's raw name is now carried as fallback
+# identity in actor_signature instead of being discarded, so differently-
+# named unresolved entities (e.g. different acquisition targets) no longer
+# collapse into one indistinguishable "unresolved" bucket; (2) a merge now
+# requires a positive witness (a matching quantified surprise value, or a
+# narrowly-scoped identity-defining actor role) AND every contributing
+# source document appearing at most once -- sharing a fingerprint alone is
+# no longer sufficient. See extraction_runner.py's own comment block above
+# _event_fingerprint for the full rationale and documented limitations.
+# ---------------------------------------------------------------------------
+
+def _null_surprise_event(category, issuer_name, evidence_span, extra_entities=None,
+                          catalyst_description="x"):
+    entities = [{"entity_name": issuer_name, "role": "issuer", "evidence_span": evidence_span}]
+    if extra_entities:
+        entities.extend(extra_entities)
+    return {
+        "event_category": category, "catalyst_description": catalyst_description,
+        "entities": entities, "relationships": [], "surprise": None,
+        "explicit_correction": False,
+    }
+
+
+def _quantified_event(category, issuer_name, evidence_span, surprise_type="metric",
+                       unit="USD_billions", period="FY2026", observed_value=10.0,
+                       catalyst_description="x"):
+    return {
+        "event_category": category, "catalyst_description": catalyst_description,
+        "entities": [{"entity_name": issuer_name, "role": "issuer", "evidence_span": evidence_span}],
+        "relationships": [],
+        "surprise": {
+            "surprise_type": surprise_type, "observed_value": observed_value, "reference_value": None,
+            "reference_source": None, "reference_timestamp": None, "unit": unit, "period": period,
+            "evidence_span": evidence_span,
+        },
+        "explicit_correction": False,
+    }
+
+
+def test_unresolved_targets_retain_distinguishing_identity():
+    """Item 1: two differently-named unresolved acquisition targets must
+    produce different actor-signature identity keys -- the exact mechanism
+    that stops Orna/Ajax/Kelonia/Centessa/AtaiBeckley from collapsing into
+    one indistinguishable "unresolved" bucket. Checked directly against
+    the normalizer that builds each raw-name identity key, since the two
+    events here share a single document -- the "at most once per document"
+    rule would already force them apart on its own, so the canonical-event
+    count alone wouldn't isolate this specific mechanism."""
+    assert (_normalize_unresolved_actor_name("Orna Therapeutics, Inc.")
+            != _normalize_unresolved_actor_name("Ajax Therapeutics, Inc."))
+
+
+def test_unresolved_targets_same_document_stay_separate(conn):
+    issuer_id = make_entity(conn, "Lilly Co")
+    span = "Lilly completed acquisitions of Orna Therapeutics, Inc. and Ajax Therapeutics, Inc."
+    catalyst_id, doc_ids = make_catalyst_with_documents(
+        conn, [("primary", "primary", span)], issuer_entity_id=issuer_id,
+    )
+    events = [
+        _null_surprise_event(
+            "acquisition_or_divestiture", "Lilly Co", span,
+            extra_entities=[{"entity_name": "Orna Therapeutics, Inc.", "role": "target", "evidence_span": span}],
+        ),
+        _null_surprise_event(
+            "acquisition_or_divestiture", "Lilly Co", span,
+            extra_entities=[{"entity_name": "Ajax Therapeutics, Inc.", "role": "target", "evidence_span": span}],
+        ),
+    ]
+    outputs = {doc_ids["primary"]: llm_output(doc_ids["primary"], events)}
+    result = process_full(conn, catalyst_id, outputs)
+    assert result["canonical_events_created"] == 2
+
+
+def test_legal_suffix_variant_across_documents_merges_when_target_matches(conn):
+    """Item 2: the conservative unresolved-actor normalizer collapses a
+    legal-suffix variant of the SAME unresolved target name to the same
+    identity key, and a shared "target" role is identity-defining for
+    acquisition_or_divestiture -- so this merges 2 -> 1."""
+    issuer_id = make_entity(conn, "Lilly Co")
+    span_a = "Lilly completed the acquisition of Orna Therapeutics, Inc."
+    span_b = "Lilly completed its acquisition of Orna Therapeutics."
+    catalyst_id, doc_ids = make_catalyst_with_documents(
+        conn, [("a", "primary", span_a), ("b", "exhibit", span_b)], issuer_entity_id=issuer_id,
+    )
+    outputs = {
+        doc_ids["a"]: llm_output(doc_ids["a"], [_null_surprise_event(
+            "acquisition_or_divestiture", "Lilly Co", span_a,
+            extra_entities=[{"entity_name": "Orna Therapeutics, Inc.", "role": "target", "evidence_span": span_a}],
+        )]),
+        doc_ids["b"]: llm_output(doc_ids["b"], [_null_surprise_event(
+            "acquisition_or_divestiture", "Lilly Co", span_b,
+            extra_entities=[{"entity_name": "Orna Therapeutics", "role": "target", "evidence_span": span_b}],
+        )]),
+    }
+    result = process_full(conn, catalyst_id, outputs)
+    assert result["canonical_events_created"] == 1
+
+
+def test_different_unresolved_targets_across_documents_stay_separate(conn):
+    """Item 3: genuinely different unresolved targets across documents
+    must not merge, even though both are otherwise-identical
+    acquisition_or_divestiture / null-surprise / issuer-only-resolved
+    events -- the raw-name fallback identity is what tells them apart."""
+    issuer_id = make_entity(conn, "Lilly Co")
+    span_a = "Lilly completed the acquisition of Orna Therapeutics."
+    span_b = "Lilly completed the acquisition of Ajax Therapeutics."
+    catalyst_id, doc_ids = make_catalyst_with_documents(
+        conn, [("a", "primary", span_a), ("b", "exhibit", span_b)], issuer_entity_id=issuer_id,
+    )
+    outputs = {
+        doc_ids["a"]: llm_output(doc_ids["a"], [_null_surprise_event(
+            "acquisition_or_divestiture", "Lilly Co", span_a,
+            extra_entities=[{"entity_name": "Orna Therapeutics", "role": "target", "evidence_span": span_a}],
+        )]),
+        doc_ids["b"]: llm_output(doc_ids["b"], [_null_surprise_event(
+            "acquisition_or_divestiture", "Lilly Co", span_b,
+            extra_entities=[{"entity_name": "Ajax Therapeutics", "role": "target", "evidence_span": span_b}],
+        )]),
+    }
+    result = process_full(conn, catalyst_id, outputs)
+    assert result["canonical_events_created"] == 2
+
+
+def test_shared_partner_alone_does_not_auto_merge_other_material_event(conn):
+    """Item 4: guard against actor-witness overreach -- "partner" is NOT
+    an identity-defining role for other_material_event (unlike "target"
+    under acquisition_or_divestiture), so a shared partner name with no
+    quantified surprise is not sufficient evidence to auto-merge. Two
+    different collaborations with the same partner are not the same
+    event."""
+    issuer_id = make_entity(conn, "Lilly Co")
+    span_a = "Lilly announced a collaboration with Partner X on drug A."
+    span_b = "Lilly announced a separate collaboration with Partner X on drug B."
+    catalyst_id, doc_ids = make_catalyst_with_documents(
+        conn, [("a", "primary", span_a), ("b", "exhibit", span_b)], issuer_entity_id=issuer_id,
+    )
+    outputs = {
+        doc_ids["a"]: llm_output(doc_ids["a"], [_null_surprise_event(
+            "other_material_event", "Lilly Co", span_a,
+            extra_entities=[{"entity_name": "Partner X", "role": "partner", "evidence_span": span_a}],
+        )]),
+        doc_ids["b"]: llm_output(doc_ids["b"], [_null_surprise_event(
+            "other_material_event", "Lilly Co", span_b,
+            extra_entities=[{"entity_name": "Partner X", "role": "partner", "evidence_span": span_b}],
+        )]),
+    }
+    result = process_full(conn, catalyst_id, outputs)
+    assert result["canonical_events_created"] == 2
+
+
+def test_issuer_only_null_surprise_same_document_stays_separate(conn):
+    """Item 5: matches the real Lilly Group 1 mechanism directly -- two
+    issuer-only, null-surprise events in ONE document share a fingerprint
+    but the "at most once per document" rule forces them apart regardless
+    of merge witness."""
+    issuer_id = make_entity(conn, "Lilly Co")
+    span = "Lilly announced two unrelated pipeline updates in the same release."
+    catalyst_id, doc_ids = make_catalyst_with_documents(
+        conn, [("primary", "primary", span)], issuer_entity_id=issuer_id,
+    )
+    events = [
+        _null_surprise_event("other_material_event", "Lilly Co", span, catalyst_description="Update 1"),
+        _null_surprise_event("other_material_event", "Lilly Co", span, catalyst_description="Update 2"),
+    ]
+    outputs = {doc_ids["primary"]: llm_output(doc_ids["primary"], events)}
+    result = process_full(conn, catalyst_id, outputs)
+    assert result["canonical_events_created"] == 2
+
+
+def test_issuer_only_null_surprise_different_documents_stays_separate(conn):
+    """Item 6: deliberate, documented conservative limitation -- a genuine
+    verbatim repeat with no quantified surprise and no identity-defining
+    actor stays split even across documents in the same catalyst, because
+    there is no positive merge witness. See extraction_runner.py's
+    documented-limitation comment above _event_fingerprint: this is an
+    intentional conservative false split, not a bug."""
+    issuer_id = make_entity(conn, "Lilly Co")
+    span_a = "Lilly announced a pipeline update."
+    span_b = "Lilly announced a pipeline update."
+    catalyst_id, doc_ids = make_catalyst_with_documents(
+        conn, [("a", "primary", span_a), ("b", "exhibit", span_b)], issuer_entity_id=issuer_id,
+    )
+    outputs = {
+        doc_ids["a"]: llm_output(doc_ids["a"], [_null_surprise_event("other_material_event", "Lilly Co", span_a)]),
+        doc_ids["b"]: llm_output(doc_ids["b"], [_null_surprise_event("other_material_event", "Lilly Co", span_b)]),
+    }
+    result = process_full(conn, catalyst_id, outputs)
+    assert result["canonical_events_created"] == 2
+
+
+# Item 7 (quantified exact duplicate across documents still merges) is
+# test_duplicate_event_across_primary_and_exhibit_canonicalizes_to_one_event
+# above, re-run unmodified as part of the full suite -- not duplicated here.
+
+
+def test_same_quantified_key_twice_in_one_document_does_not_merge(conn):
+    """Item 8: freezes "same-document assertions are never auto-merged" as
+    an explicit, intentional rule -- even a genuine quantified duplicate
+    extracted twice from the same document stays split. The false split
+    here is an accepted trade-off (see _split_into_canonicalization_units'
+    docstring)."""
+    issuer_id = make_entity(conn, "Lilly Co")
+    span = "Lilly raised full-year revenue guidance to $10 billion."
+    catalyst_id, doc_ids = make_catalyst_with_documents(
+        conn, [("primary", "primary", span)], issuer_entity_id=issuer_id,
+    )
+    events = [
+        _quantified_event("guidance_revision", "Lilly Co", span, surprise_type="revenue_guidance",
+                           unit="USD_billions", period="FY2026", observed_value=10.0),
+        _quantified_event("guidance_revision", "Lilly Co", span, surprise_type="revenue_guidance",
+                           unit="USD_billions", period="FY2026", observed_value=10.0),
+    ]
+    outputs = {doc_ids["primary"]: llm_output(doc_ids["primary"], events)}
+    result = process_full(conn, catalyst_id, outputs)
+    assert result["canonical_events_created"] == 2
+
+
+def test_ambiguous_multi_document_group_stays_fully_separate(conn):
+    """Item 9: document A contributes 2 events sharing a merge-eligible
+    key; document B contributes 1 more sharing the same key. The
+    ambiguity from A's duplicate blocks the WHOLE group -- all 3 stay
+    separate, not just A's extras excluded from an otherwise-formed
+    A[0]+B merge."""
+    issuer_id = make_entity(conn, "Lilly Co")
+    span_a = "Lilly raised full-year revenue guidance to $10 billion."
+    span_b = "Lilly raised full-year revenue guidance to $10 billion, per the release."
+    catalyst_id, doc_ids = make_catalyst_with_documents(
+        conn, [("a", "primary", span_a), ("b", "exhibit", span_b)], issuer_entity_id=issuer_id,
+    )
+    events_a = [
+        _quantified_event("guidance_revision", "Lilly Co", span_a, surprise_type="revenue_guidance",
+                           unit="USD_billions", period="FY2026", observed_value=10.0),
+        _quantified_event("guidance_revision", "Lilly Co", span_a, surprise_type="revenue_guidance",
+                           unit="USD_billions", period="FY2026", observed_value=10.0),
+    ]
+    events_b = [
+        _quantified_event("guidance_revision", "Lilly Co", span_b, surprise_type="revenue_guidance",
+                           unit="USD_billions", period="FY2026", observed_value=10.0),
+    ]
+    outputs = {
+        doc_ids["a"]: llm_output(doc_ids["a"], events_a),
+        doc_ids["b"]: llm_output(doc_ids["b"], events_b),
+    }
+    result = process_full(conn, catalyst_id, outputs)
+    assert result["canonical_events_created"] == 3
+
+
+def test_different_units_block_merging(conn):
+    """Item 10: same category, same issuer, same surprise_type/period/
+    numeric value, but a different unit -- must not merge. 10% and $10B
+    must never collide."""
+    issuer_id = make_entity(conn, "Lilly Co")
+    span_a = "Lilly reported a metric of 10 in billions."
+    span_b = "Lilly reported a metric of 10 in percent."
+    catalyst_id, doc_ids = make_catalyst_with_documents(
+        conn, [("a", "primary", span_a), ("b", "exhibit", span_b)], issuer_entity_id=issuer_id,
+    )
+    outputs = {
+        doc_ids["a"]: llm_output(doc_ids["a"], [_quantified_event(
+            "other_material_event", "Lilly Co", span_a, surprise_type="metric",
+            unit="USD_billions", period="FY2026", observed_value=10.0,
+        )]),
+        doc_ids["b"]: llm_output(doc_ids["b"], [_quantified_event(
+            "other_material_event", "Lilly Co", span_b, surprise_type="metric",
+            unit="percent", period="FY2026", observed_value=10.0,
+        )]),
+    }
+    result = process_full(conn, catalyst_id, outputs)
+    assert result["canonical_events_created"] == 2
+
+
+# Item 11 (existing distinct-surprise test) is
+# test_distinct_events_in_the_same_catalyst_stay_separate above, re-run
+# unmodified as part of the full suite -- not duplicated here.
+
+
+def test_unresolved_entity_never_leaks_into_event_entities(conn):
+    """Item 12, persistence boundary: (a) an unresolved entity's raw name
+    DOES affect the fingerprint/canonical-grouping outcome -- reusing the
+    same Orna-vs-Ajax scenario as item 3, which would collide into ONE
+    canonical event if the raw name were discarded (both would reduce to
+    the same issuer-only fingerprint); and (b) no event_entities row
+    exists for either unresolved target under any name or placeholder --
+    actor_signature must never leak into the UUID NOT NULL REFERENCES
+    entities(entity_id) foreign key that event_entities enforces."""
+    issuer_id = make_entity(conn, "Lilly Co")
+    span_a = "Lilly completed the acquisition of Orna Therapeutics."
+    span_b = "Lilly completed the acquisition of Ajax Therapeutics."
+    catalyst_id, doc_ids = make_catalyst_with_documents(
+        conn, [("a", "primary", span_a), ("b", "exhibit", span_b)], issuer_entity_id=issuer_id,
+    )
+    outputs = {
+        doc_ids["a"]: llm_output(doc_ids["a"], [_null_surprise_event(
+            "acquisition_or_divestiture", "Lilly Co", span_a,
+            extra_entities=[{"entity_name": "Orna Therapeutics", "role": "target", "evidence_span": span_a}],
+        )]),
+        doc_ids["b"]: llm_output(doc_ids["b"], [_null_surprise_event(
+            "acquisition_or_divestiture", "Lilly Co", span_b,
+            extra_entities=[{"entity_name": "Ajax Therapeutics", "role": "target", "evidence_span": span_b}],
+        )]),
+    }
+    result = process_full(conn, catalyst_id, outputs)
+    assert result["canonical_events_created"] == 2  # (a) -- would be 1 if the raw name were discarded
+
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT DISTINCT ee.entity_id, ee.role FROM event_entities ee "
+            "JOIN event_versions ev ON ev.event_version_id = ee.event_version_id "
+            "JOIN canonical_events ce ON ce.canonical_event_id = ev.canonical_event_id "
+            "WHERE ce.catalyst_id = %s",
+            (catalyst_id,),
+        )
+        rows = {(str(entity_id), role) for entity_id, role in cur.fetchall()}
+    assert rows == {(str(issuer_id), "issuer")}  # (b) -- only the resolved issuer, nothing for Orna/Ajax
 
 
 # ---------------------------------------------------------------------------

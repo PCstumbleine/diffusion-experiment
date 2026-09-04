@@ -9,16 +9,17 @@ same mechanism Dry Run 001 itself used.
 
 Purpose (see the task spec this module implements): confirm the
 previously-shipped fixes (evidence-span escape-repair, curated "Lilly"
-alias, relationship-deferral observability) and hardening item D
-(relationship_type synonyms for "acquired"/"agreement_to_acquire"/
-"collaboration") hold up against the real document, AND formally document
--- with a real, reproducible, DB-backed test -- a genuine canonicalization
-bug: 34 independently adjudicated distinct events collapse to 23
-canonical events under the current event-fingerprint logic.
-test_real_lilly_fixture_characterizes_known_canonicalization_collision
-below characterizes that bug precisely; it does NOT fix it. Do not modify
-_event_fingerprint or any canonicalization/merging logic because of
-anything in this file -- that's Round 2, a separate, dedicated fix.
+alias, relationship-deferral observability, hardening item D's
+relationship_type synonyms for "acquired"/"agreement_to_acquire"/
+"collaboration") hold up against the real document, AND confirm the
+Round 2 canonicalization fix (actor_signature + merge-witness requirement
+in extraction_runner.py's _event_fingerprint /
+_split_into_canonicalization_units): 34 independently adjudicated
+distinct events used to collapse to 23 canonical events under the prior
+event-fingerprint logic (see git history for that known-bug-characterization
+round); test_real_lilly_fixture_canonicalizes_to_34_distinct_events below
+is now a regression guard confirming every one of the 34 maps to its own
+distinct canonical event.
 
 Centessa Pharmaceuticals, AtaiBeckley, and Boehringer Ingelheim are
 deliberately NOT added to the watchlist or created as entities anywhere
@@ -242,82 +243,29 @@ def test_real_lilly_fixture_replay_validation_and_resolution(conn):
 
 
 # ---------------------------------------------------------------------------
-# Assertion 7: canonicalization known-bug characterization.
+# Assertion 7: canonicalization regression guard (Round 2 fix).
 # ---------------------------------------------------------------------------
 
-def test_real_lilly_fixture_characterizes_known_canonicalization_collision(conn):
-    """Current known-bug characterization only. 34 adjudicated distinct
-    source events incorrectly collapse to 23 canonical events under the
-    existing event-fingerprint logic. Tracked for the dedicated Round 2
-    canonicalization fix; update this docstring with the eventual
-    issue/commit reference when that fix lands. This test documents the
-    defect precisely so a future fix can be verified against it; 23 is NOT
-    the desired long-term behavior -- Round 2 will change this assertion
-    to 34."""
+def test_real_lilly_fixture_canonicalizes_to_34_distinct_events(conn):
+    """Regression guard for the Round 2 canonicalization fix
+    (actor_signature + merge-witness requirement in _event_fingerprint /
+    _split_into_canonicalization_units, extraction_runner.py). Before that
+    fix, these same 34 independently adjudicated distinct events
+    incorrectly collapsed to 23 canonical events (nine, three, and two of
+    them respectively sharing a category + issuer-only-actors +
+    no-quantified-surprise fingerprint with nothing to distinguish them --
+    see git history for the prior known-bug-characterization version of
+    this test). Now every one of the 34 adjudicated events maps to its own
+    distinct canonical event: no collision groups at all for this fixture."""
     catalyst_id, document_id, _lilly_entity_id, raw_content, client = _setup_replay(conn)
     _extract_and_process(conn, document_id, catalyst_id, raw_content, client)
 
-    fixture = _load_fixture()
-    description_to_index = {e["catalyst_description"]: i for i, e in enumerate(fixture["events"])}
-
     with conn.cursor() as cur:
-        cur.execute(
-            "SELECT ev.canonical_event_id, ext.raw_llm_output->>'catalyst_description' "
-            "FROM extracted_events ext "
-            "JOIN event_versions ev ON ev.event_version_id = ext.event_version_id "
-            "JOIN canonical_events ce ON ce.canonical_event_id = ev.canonical_event_id "
-            "WHERE ce.catalyst_id = %s",
-            (catalyst_id,),
-        )
-        rows = cur.fetchall()
+        cur.execute("SELECT canonical_event_id FROM canonical_events WHERE catalyst_id = %s", (catalyst_id,))
+        canonical_event_ids = [str(row[0]) for row in cur.fetchall()]
 
-    groups: dict[str, list[str]] = {}
-    for canonical_event_id, description in rows:
-        groups.setdefault(str(canonical_event_id), []).append(description)
-
-    # KNOWN-BUG CHARACTERIZATION -- desired value is 34. Round 2 must
-    # change this assertion, not preserve 23.
-    assert len(groups) == 23
-
-    multi_member_groups = [sorted(members) for members in groups.values() if len(members) > 1]
-    multi_member_groups.sort(key=len)
-
-    expected_2 = sorted([
-        "Lilly completed the acquisition of Centessa Pharmaceuticals.",
-        "Lilly entered into an agreement to acquire AtaiBeckley.",
-    ])
-    expected_3 = sorted([
-        "Lilly completed the acquisition of Orna Therapeutics, Inc.",
-        "Lilly completed the acquisition of Ajax Therapeutics, Inc.",
-        "Lilly completed the acquisition of Kelonia Therapeutics, Inc.",
-    ])
-    expected_9 = sorted([
-        "The European Commission approved Jaypirca as monotherapy for adults with chronic lymphocytic leukemia across all lines of therapy.",
-        "Lilly submitted orforglipron for type 2 diabetes in the U.S.",
-        "Mounjaro was added to China's National Reimbursement Drug List, which Lilly said drove lower realized prices outside the U.S.",
-        "CHMP recommended Jaypirca for approval in the European Union for adults with CLL across all lines of therapy.",
-        "Olomorasib received U.S. FDA Breakthrough Therapy designation for previously treated KRAS G12C-mutant advanced pancreatic cancer.",
-        "Foundayo was associated with significant weight loss in women at every stage of menopause.",
-        "Retatrutide produced substantial improvements in weight, A1C, knee osteoarthritis pain, and obstructive sleep apnea.",
-        "Retatrutide delivered powerful weight loss in a pivotal Phase 3 obesity trial.",
-        "Foundayo and Zepbound became covered for millions of Americans.",
-    ])
-
-    assert len(multi_member_groups) == 3  # exactly one 2-, one 3-, one 9-member group
-    assert multi_member_groups == [expected_2, expected_3, expected_9]
-
-    # Cross-check against the fixture's own zero-based indices, per the spec.
-    expected_2_indices = sorted(description_to_index[d] for d in expected_2)
-    expected_3_indices = sorted(description_to_index[d] for d in expected_3)
-    expected_9_indices = sorted(description_to_index[d] for d in expected_9)
-    assert expected_2_indices == [11, 14]
-    assert expected_3_indices == [9, 10, 12]
-    assert expected_9_indices == [6, 7, 16, 18, 19, 23, 24, 28, 31]
-
-    # 34 - 9 - 3 - 2 + 3 = 23: the three groups each collapse to 1,
-    # accounting for all 11 "missing" events -- proves the gap is exactly
-    # this known, understood collapse and nothing else.
-    assert 34 - 9 - 3 - 2 + 3 == 23
+    assert len(canonical_event_ids) == 34
+    assert len(set(canonical_event_ids)) == 34  # all distinct -- no collision groups
 
 
 # ---------------------------------------------------------------------------

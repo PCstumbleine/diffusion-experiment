@@ -120,6 +120,8 @@ from __future__ import annotations
 
 import argparse
 import logging
+import re
+import unicodedata
 import uuid
 from datetime import datetime, timezone
 
@@ -567,13 +569,94 @@ def extract_document(conn, llm_client, document_id: str, raw_content: str, promp
 # candidate generation
 # ---------------------------------------------------------------------------
 
-def _event_fingerprint(event: dict, resolved_roles: frozenset) -> tuple:
+# ---------------------------------------------------------------------------
+# Canonicalization identity (code review, Round 2 post-Recall-Check-001):
+# two independent problems fixed together here.
+#
+# 1. When an entity fails to resolve, its raw extracted name used to be
+#    discarded entirely -- the old fingerprint only ever recorded "resolved
+#    to X" or "didn't resolve," never "didn't resolve, but was named Y."
+#    Five real, differently-named acquisition targets (Orna, Ajax, Kelonia,
+#    Centessa, AtaiBeckley) were all recorded identically as "unresolved,"
+#    so five distinct acquisitions collapsed into one canonical event.
+#    Fixed by carrying a raw-name fallback identity key (never a resolved
+#    entity_id) in a new `actor_signature`, separate from `resolved_entities`.
+#
+# 2. Canonicalization used to merge ANY two events sharing a fingerprint,
+#    no further check -- too permissive: genuinely distinct announcements
+#    that happen to share category + issuer-only-actors + no quantified
+#    surprise value got merged purely because nothing in the structured
+#    data distinguished them. Fixed by requiring a positive merge witness
+#    (a matching quantified surprise value, or a narrowly-scoped identity-
+#    defining actor role) before two same-fingerprint events are allowed
+#    to merge, AND requiring every contributing source document appear at
+#    most once in the merge (see _split_into_canonicalization_units).
+#
+# Documented, deliberate limitations (not bugs):
+#
+#   - Relationships are not an actor-signature source. Canonicalization
+#     identity is derived from event["entities"] only; event["relationships"]
+#     endpoints are not independently injected into the actor signature.
+#     In the real Lilly fixture, every relationship counterparty is also
+#     separately listed in entities with a role, so this doesn't affect
+#     the current fix. If live telemetry ever shows a relationship
+#     endpoint with no corresponding entity in entities, that's a sign of
+#     an extraction-shape issue worth reviewing on its own -- not a reason
+#     to silently broaden canonicalization to crawl relationships too.
+#
+#   - A resolution-status mismatch prevents an otherwise-legitimate
+#     cross-document merge, by design. If the same real company resolves
+#     in one document's event but fails to resolve in another document's
+#     event for the same underlying fact, their actor-signature identity
+#     keys differ (("entity_id", ...) vs ("raw_name", ...)) and they will
+#     NOT merge. This is an intentional conservative false split, not a
+#     bug -- do not attempt to make resolved and unresolved representations
+#     equivalent via name similarity; that would reintroduce exactly the
+#     uncertainty this fix removes.
+# ---------------------------------------------------------------------------
+
+# Longest-first, multi-token sequences included (so "L.L.C." -> "l l c"
+# after punctuation normalization still matches as one suffix, not three
+# separate tokens). Exactly ONE matched suffix sequence is removed, never
+# looped -- unlike entity_resolution.normalize_entity_name, this must NOT
+# strip broader/semantic terms like "group" or "holdings": canonicalization
+# can't recover from a false merge the way resolution recovers from a
+# false "unresolved" by just deferring. Expand this list only when a real
+# filing demonstrates the need, same discipline as CURATED_ALIASES.
+_UNRESOLVED_ACTOR_SUFFIXES = tuple(sorted([
+    ("incorporated",), ("corporation",), ("limited",),
+    ("l", "l", "c"), ("l", "p"),
+    ("s", "a"), ("n", "v"),
+    ("inc",), ("corp",), ("ltd",), ("llc",), ("plc",), ("lp",),
+    ("ag",), ("sa",), ("nv",), ("se",),
+], key=lambda t: -len(t)))
+
+
+def _normalize_unresolved_actor_name(name: str) -> str:
+    """Conservative identity normalizer for UNRESOLVED entities in the
+    canonicalization actor signature only -- never used for resolution.
+    Strips at most one trailing legal-suffix token sequence; does not
+    touch "group"/"holdings"/"company" or any other semantic term."""
+    s = unicodedata.normalize("NFKC", name).casefold()
+    s = re.sub(r"[^\w\s]", " ", s)
+    s = re.sub(r"\s+", " ", s).strip()
+    tokens = s.split(" ") if s else []
+    for suffix in _UNRESOLVED_ACTOR_SUFFIXES:
+        n = len(suffix)
+        if n <= len(tokens) and tuple(tokens[-n:]) == suffix:
+            tokens = tokens[:-n]
+            break
+    return " ".join(tokens)
+
+
+def _event_fingerprint(event: dict, actor_signature: frozenset) -> tuple:
     surprise = event.get("surprise") or {}
     return (
         event["event_category"],
-        resolved_roles,
+        actor_signature,
         surprise.get("surprise_type"),
         surprise.get("period"),
+        surprise.get("unit"),  # 10% and $10B must never collide
         surprise.get("observed_value"),
         surprise.get("reference_value"),
         # Range fields (v1.2.0) included too -- without these, two
@@ -587,6 +670,69 @@ def _event_fingerprint(event: dict, resolved_roles: frozenset) -> tuple:
         surprise.get("reference_value_low"),
         surprise.get("reference_value_high"),
     )
+
+
+_NUMERIC_SURPRISE_FIELDS = (
+    "observed_value", "reference_value",
+    "observed_value_low", "observed_value_high",
+    "reference_value_low", "reference_value_high",
+)
+
+
+def _has_quantified_surprise(event: dict) -> bool:
+    surprise = event.get("surprise") or {}
+    return any(surprise.get(field) is not None for field in _NUMERIC_SURPRISE_FIELDS)
+
+
+# Deliberately narrow and evidenced, same discipline as CURATED_ALIASES
+# and RELATIONSHIP_TYPE_SYNONYMS: an actor role only counts as sufficient
+# evidence, BY ITSELF, to auto-merge two null-surprise events when it is
+# genuinely identity-defining for that event category. A shared "partner"
+# or "counterparty" on two otherwise-sparse other_material_events is NOT
+# strong enough evidence on its own (two different collaborations with
+# the same partner are not the same event) -- but a shared, specifically-
+# named acquisition "target" on two acquisition_or_divestiture events is.
+# Expand this map only from real observed evidence, never speculatively.
+_IDENTITY_DEFINING_ACTOR_ROLES_BY_CATEGORY = {
+    "acquisition_or_divestiture": {"target"},
+}
+
+
+def _has_identity_defining_actor(event: dict, actor_signature: frozenset) -> bool:
+    allowed_roles = _IDENTITY_DEFINING_ACTOR_ROLES_BY_CATEGORY.get(event["event_category"], set())
+    if not allowed_roles:
+        return False
+    return any(role in allowed_roles for _identity_key, role in actor_signature)
+
+
+def _has_merge_witness(event: dict, actor_signature: frozenset) -> bool:
+    return _has_quantified_surprise(event) or _has_identity_defining_actor(event, actor_signature)
+
+
+def _split_into_canonicalization_units(members):
+    """members: a list of (document_id, event_index, event, resolved_entities,
+    actor_signature) tuples that all share one identical fingerprint (so
+    event_category and actor_signature are identical across every member,
+    by construction of how `groups` is built). Returns a list of member-
+    lists; each inner list becomes exactly one canonical event.
+
+    A merge group is eligible only when (1) there is a positive merge
+    witness, AND (2) every contributing source document appears at most
+    once -- a document that contributes more than one candidate under
+    this identity makes correspondence ambiguous (which document's event
+    matches which other document's?), so the WHOLE group is split, not
+    just the offending document's duplicates. This one check also covers
+    the pure same-document-duplicate case as its special case (all
+    members sharing one document_id always fails "at most once")."""
+    if len(members) == 1:
+        return [members]
+    representative_event, representative_actor_signature = members[0][2], members[0][4]
+    if not _has_merge_witness(representative_event, representative_actor_signature):
+        return [[m] for m in members]
+    doc_ids = [m[0] for m in members]
+    if len(doc_ids) != len(set(doc_ids)):
+        return [[m] for m in members]
+    return [members]
 
 
 def _get_catalyst_documents_with_terminal_runs(conn, catalyst_id: str, prompt_version: str,
@@ -857,7 +1003,7 @@ def _do_process_catalyst(conn, catalyst_id: str, docs: list, prompt_version: str
         doc_meta = {str(doc_id): (content, public_at) for doc_id, content, public_at in cur.fetchall()}
     raw_content_by_doc = {doc_id: meta[0] for doc_id, meta in doc_meta.items()}
 
-    groups: dict[tuple, list[tuple[str, int, dict, list[tuple[str, str]]]]] = {}
+    groups: dict[tuple, list[tuple[str, int, dict, list[tuple[str, str]], frozenset]]] = {}
     primary_document_id = next((doc_id for doc_id, role, _s, _c in docs if role == "primary"), None)
 
     for document_id, _role, status, cleaned_output in docs:
@@ -865,7 +1011,8 @@ def _do_process_catalyst(conn, catalyst_id: str, docs: list, prompt_version: str
             continue
         extraction_run_id = doc_run_ids[document_id]
         for event_index, event in enumerate(cleaned_output.get("events", [])):
-            resolved_entities = []
+            resolved_entities = []   # UNCHANGED -- still only real resolved ids; still what event_entities is built from
+            actor_signature = []     # NEW -- canonicalization identity only, may include raw-name fallback
             for ent in event.get("entities", []):
                 if ent["role"] == "issuer" and issuer_entity_id is not None:
                     # Issuer-identity shortcut (code review, post-dry-run-001):
@@ -889,14 +1036,33 @@ def _do_process_catalyst(conn, catalyst_id: str, docs: list, prompt_version: str
                     entity_id = resolve(ent["entity_name"], document_id, extraction_run_id)
                 if entity_id is not None:
                     resolved_entities.append((entity_id, ent["role"]))
-            role_set = frozenset(resolved_entities)
-            fingerprint = _event_fingerprint(event, role_set)
-            groups.setdefault(fingerprint, []).append((document_id, event_index, event, resolved_entities))
+                # Raw-name fallback applies uniformly to EVERY role,
+                # including issuer -- never special-cased. An unresolved
+                # issuer's raw name still belongs in the signature for
+                # identity purposes; it just never counts as a merge
+                # witness by itself (see _has_identity_defining_actor,
+                # which only recognizes "target" under
+                # acquisition_or_divestiture).
+                identity_key = (
+                    ("entity_id", str(entity_id)) if entity_id is not None
+                    else ("raw_name", _normalize_unresolved_actor_name(ent["entity_name"]))
+                )
+                actor_signature.append((identity_key, ent["role"]))
+            actor_signature = frozenset(actor_signature)
+            fingerprint = _event_fingerprint(event, actor_signature)
+            groups.setdefault(fingerprint, []).append(
+                (document_id, event_index, event, resolved_entities, actor_signature)
+            )
 
     # ---- Pass 1: canonicalize every event and write every relationship ----
     event_version_ids: list[str] = []
 
+    canonicalization_units: list[tuple[tuple, list]] = []
     for fingerprint, members in groups.items():
+        for unit in _split_into_canonicalization_units(members):
+            canonicalization_units.append((fingerprint, unit))
+
+    for fingerprint, members in canonicalization_units:
         event_category = fingerprint[0]
         with conn.cursor() as cur:
             cur.execute(
@@ -919,7 +1085,7 @@ def _do_process_catalyst(conn, catalyst_id: str, docs: list, prompt_version: str
         event_version_ids.append(str(event_version_id))
 
         all_resolved_roles: set[tuple[str, str]] = set()
-        for document_id, event_index, event, resolved_entities in members:
+        for document_id, event_index, event, resolved_entities, actor_signature in members:
             all_resolved_roles.update(resolved_entities)
             extraction_run_id = doc_run_ids[document_id]
 

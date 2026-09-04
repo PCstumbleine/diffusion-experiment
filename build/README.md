@@ -352,10 +352,12 @@ inside test fixtures; nothing connected a real filing to them. New files:
   a failed extraction, a genuine two-connection concurrent-claim race,
   full-pipeline idempotency, and atomicity under a forced mid-batch
   failure — bringing the suite to 79 tests total, all passing. (Dry Run
-  001 and its post-dry-run fix round added 15 more — see below — for
-  94 total as of this writing; `build/tests/pytest_run_002.xml` /
-  `pytest_run_002.out.txt` are real, captured output for that count, not
-  inferred from `.pytest_cache`.)
+  001's post-dry-run fix round added 15 more, then the
+  `--since`/`--max-new-filings-per-company` round added 3 more — see
+  below for both — for 97 total as of this writing; `build/tests/
+  pytest_run_002.xml`/`.out.txt` and `pytest_run_003.xml`/`.out.txt` are
+  real, captured output for those counts, not inferred from
+  `.pytest_cache`.)
 
 **A live bug found while wiring this up, not in the design doc:** every
 real `-index-headers.html` page `edgar_ingest_worker.py` fetches serves
@@ -538,16 +540,42 @@ not that they passed in one specific invocation).
    actually the same claim; fixing what counts as an event in the first
    place is the correct fix.
 
-**Explicitly deferred, not fixed in this round:** a per-company
-filing-volume cap on `edgar_ingest_worker.py` / a document-count cap on
-`extraction_runner.py` (Dry Run 001 pulled in 411 documents scoping to
-just 4 companies, since the worker has no volume control beyond *which*
-companies); measuring real token counts on large documents (Dry Run 001's
-largest exhibit was 1.1MB) before any real paid API call; and the
-candidate-effective-N reporting distinction (multiple candidate rows from
-one relationship aren't independent signals) — a downstream
-analysis/reporting concern, not a pipeline bug. All tracked, not
-forgotten.
+**Explicitly deferred, not fixed in this round:** a document-count cap on
+`extraction_runner.py` (`edgar_ingest_worker.py`'s own filing-volume cap
+was added in the very next round — see below); measuring real token
+counts on large documents (Dry Run 001's largest exhibit was 1.1MB)
+before any real paid API call; and the candidate-effective-N reporting
+distinction (multiple candidate rows from one relationship aren't
+independent signals) — a downstream analysis/reporting concern, not a
+pipeline bug. All tracked, not forgotten.
+
+## `--since` / `--max-new-filings-per-company` — an operator-controlled filing-volume cap
+
+Directly from the deferred item above: `--only-ciks` alone still pulled
+in each company's entire historical backlog (Dry Run 001: 411 documents
+for 4 companies), because `edgar_ingest_worker.py` has no filing-volume
+limit by design (fix #15's own docstring — and that reasoning is
+unchanged for the *default* case; neither flag below is automatic).
+
+- `--since YYYY-MM-DD` — skips any filing whose SEC acceptance timestamp
+  (`sec_acceptance_at`, via the new shared `parse_acceptance_datetime()`
+  helper — not ingestion order) is before this date (UTC midnight).
+- `--max-new-filings-per-company N` — stops ingesting NEW filings for a
+  given CIK once N have been ingested in *this invocation*; resets
+  per company, so one company hitting the cap never affects another's
+  budget in the same poll. Already-ingested/deduplicated filings never
+  count against it, including under `--dry-run` (checked via
+  `accession_already_ingested` before calling `ingest_filing`, since
+  `ingest_filing`'s dry-run path always returns `None` regardless of
+  whether a filing is new — its own return-value contract is unchanged,
+  by design, since an existing test asserts exactly that).
+
+Both default to `None` (unlimited) and log a clear message when they
+cause a skip or an early stop — never a silent truncation. 3 new tests:
+`--since` skips before/includes on-or-after the cutoff; the cap stops at
+N for one company without affecting another in the same invocation; and
+an explicit regression test that omitting both flags reproduces fix #15's
+original unlimited-scan behavior exactly.
 
 ## How to actually run this yourself
 

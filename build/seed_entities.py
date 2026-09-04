@@ -47,6 +47,7 @@ from pathlib import Path
 
 import psycopg2
 
+import entity_resolution
 from entity_resolution import normalize_entity_name, strip_sec_filing_index_noise
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -63,10 +64,12 @@ CSV_PATH = Path(__file__).parent / "seed_data" / "watchlist_ciks.csv"
 # specific informal name repeatedly -- never invented in advance for
 # companies that haven't shown the need.
 CURATED_ALIASES: dict[str, list[str]] = {
-    # Eli Lilly and Company (CIK 0000059478) self-refers as bare "Lilly"
-    # repeatedly in its own Q2 2026 earnings release (Recall Check 001,
-    # build/RECALL_CHECK_001.md) -- 6 of 34 events named the issuer this
-    # way, none of which resolved under any alias seeded before this.
+    # Eli Lilly and Company (CIK 0000059478) -- "Lilly" appears as a
+    # non-issuer buyer/relationship endpoint in two adjudicated Q2 2026
+    # acquisition events (Centessa, AtaiBeckley); issuer-role references
+    # already resolve through the catalyst issuer shortcut and needed no
+    # fix. This curated alias is for ordinary name-resolution contexts
+    # outside that shortcut.
     "0000059478": ["Lilly"],
 }
 
@@ -97,14 +100,20 @@ def insert_curated_alias(conn, entity_id: str, alias_text: str) -> None:
     """Like insert_alias(), but for CURATED_ALIASES -- a small, explicitly
     source-justified list, not a mechanical derivation from the SEC legal
     name. Fails LOUDLY if the normalized form would already resolve to a
-    DIFFERENT entity via entity_aliases -- that's a real naming collision
-    needing a human decision, never a silent skip or silent overwrite."""
+    DIFFERENT entity -- that's a real naming collision needing a human
+    decision, never a silent skip or silent overwrite.
+
+    The collision check uses entity_resolution.build_resolution_index(),
+    not a narrower entity_aliases-only query -- the real resolver at
+    resolution time merges BOTH entities.legal_name (normalized) and
+    entity_aliases.normalized_alias into one lookup, so an entity whose
+    bare legal_name collides with a curated alias but has no matching row
+    in entity_aliases would slip past an aliases-only check undetected."""
     normalized = normalize_entity_name(alias_text)
     if not normalized:
         return
-    with conn.cursor() as cur:
-        cur.execute("SELECT DISTINCT entity_id FROM entity_aliases WHERE normalized_alias = %s", (normalized,))
-        existing_entity_ids = {str(row[0]) for row in cur.fetchall()}
+    resolution_index = entity_resolution.build_resolution_index(conn)
+    existing_entity_ids = {str(x) for x in resolution_index.get(normalized, [])}
     colliding = existing_entity_ids - {str(entity_id)}
     if colliding:
         raise RuntimeError(

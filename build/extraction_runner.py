@@ -403,6 +403,7 @@ def validate_extraction_output(output: dict, raw_content: str, requested_prompt_
                 span_repairs.append({
                     "event_index": i, "claim_type": "entity", "claim_index": j,
                     "original_span": original_span, "verified_span": verified_span,
+                    "span_match_mode": mode,
                 })
                 # The repaired string -- not the original -- must be what
                 # downstream code (e.g. _do_process_catalyst's
@@ -443,6 +444,7 @@ def validate_extraction_output(output: dict, raw_content: str, requested_prompt_
                 span_repairs.append({
                     "event_index": i, "claim_type": "relationship", "claim_index": j,
                     "original_span": original_span, "verified_span": verified_span,
+                    "span_match_mode": mode,
                 })
                 rel = dict(rel, evidence_span=verified_span)
             cleaned_relationships.append(rel)
@@ -478,6 +480,7 @@ def validate_extraction_output(output: dict, raw_content: str, requested_prompt_
                     span_repairs.append({
                         "event_index": i, "claim_type": "surprise", "claim_index": None,
                         "original_span": original_span, "verified_span": verified_span,
+                        "span_match_mode": mode,
                     })
                     surprise = dict(surprise, evidence_span=verified_span)
             event = dict(event, surprise=surprise)

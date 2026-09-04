@@ -124,3 +124,67 @@ def test_curated_alias_seeding_succeeds_when_no_collision_exists(conn):
         )
         row = cur.fetchone()
     assert row == ("lilly", "seed_curated_alias")
+
+
+# ---------------------------------------------------------------------------
+# Collision guard should use the real resolution index, not entity_aliases
+# alone (hardening, post-Recall-Check-001 fixes): the real resolver
+# (entity_resolution.build_resolution_index) merges BOTH
+# entities.legal_name (normalized) and entity_aliases.normalized_alias into
+# one lookup. An entity whose bare legal_name collides with a curated alias
+# but has no matching row in entity_aliases would slip past an
+# aliases-only check undetected.
+# ---------------------------------------------------------------------------
+
+def test_curated_alias_seeding_fails_loudly_on_a_legal_name_only_collision(conn):
+    """Another entity has legal_name = "Lilly" and NO row in
+    entity_aliases at all -- must still be caught."""
+    other_entity_id = make_entity(conn, "Lilly")
+    real_lilly_id = make_entity(conn, "Eli Lilly and Company Test 3")
+
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT count(*) FROM entity_aliases WHERE entity_id = %s",
+            (other_entity_id,),
+        )
+        assert cur.fetchone()[0] == 0  # confirm the setup: no alias row at all
+
+    with pytest.raises(RuntimeError):
+        insert_curated_alias(conn, real_lilly_id, "Lilly")
+
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT count(*) FROM entity_aliases WHERE entity_id = %s AND normalized_alias = 'lilly'",
+            (real_lilly_id,),
+        )
+        assert cur.fetchone()[0] == 0
+
+
+def test_curated_alias_seeding_is_not_a_false_collision_with_its_own_legal_name_alias(conn):
+    """The real, common case (a milder version of it, precisely isolated):
+    the entity's OWN entities.legal_name column already normalizes to the
+    curated alias's key and so contributes this entity's own id to
+    build_resolution_index -- via the direct `SELECT ... FROM entities`
+    half of that function, with NO entity_aliases row yet (that's the
+    setup assertion below). This must NOT be treated as a collision --
+    it's the type-mismatch trap the fix guards against
+    (build_resolution_index's entity_id values vs. this function's
+    entity_id parameter may differ in type, and comparing them without
+    str(...) on both sides would make an entity look like it collides with
+    itself on every call, wrongly raising). Because there is no pre-existing
+    entity_aliases row here, ON CONFLICT DO NOTHING cannot mask a bug that
+    silently skipped the insert -- the resulting row is unambiguously new."""
+    entity_id = make_entity(conn, "Lilly")  # legal_name itself normalizes to "lilly"
+    with conn.cursor() as cur:
+        cur.execute("SELECT count(*) FROM entity_aliases WHERE entity_id = %s", (entity_id,))
+        assert cur.fetchone()[0] == 0  # confirm setup: no alias row, only entities.legal_name
+
+    insert_curated_alias(conn, entity_id, "Lilly")
+
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT normalized_alias, alias_source FROM entity_aliases WHERE entity_id = %s",
+            (entity_id,),
+        )
+        row = cur.fetchone()
+    assert row == ("lilly", "seed_curated_alias")

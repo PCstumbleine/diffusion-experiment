@@ -587,6 +587,7 @@ def test_validate_extraction_output_accepts_and_records_a_span_repair():
     assert span_repairs[0] == {
         "event_index": 0, "claim_type": "surprise", "claim_index": None,
         "original_span": given_span, "verified_span": "<td>$85.0 billion</td>",
+        "span_match_mode": "escaped_punctuation_repair",
     }
 
 

@@ -1,0 +1,21 @@
+-- Migration 005 -- observability for relationships deferred on an
+-- unresolved endpoint (code review, post-Recall-Check-001, see
+-- build/RECALL_CHECK_001.md).
+--
+-- When a relationship's entity_a/entity_b fails to resolve,
+-- entity_resolution.resolve_entity_name() already logs the failed
+-- mention to unresolved_entity_mentions, and manual_resolve.py's
+-- _write_backfilled_relationships() already backfills the relationship
+-- once that mention is resolved. What was missing is explicit,
+-- relationship-level visibility that a SPECIFIC relationship assertion
+-- (not just a bare name mention) was deferred at that point.
+--
+-- Deliberately a column on catalyst_processing_runs, not
+-- extraction_runs.validation_drop_log: this is scoped at the
+-- catalyst-processing level (where the deferral actually happens), and
+-- is semantically distinct from validation_drop_log on purpose --
+-- validation_drop_log is a pre-resolution VALIDATION rejection;
+-- processing_issues is a post-validation ENTITY-RESOLUTION deferral.
+-- Different pipeline stage, different meaning; not conflated into one log.
+
+ALTER TABLE catalyst_processing_runs ADD COLUMN processing_issues JSONB NOT NULL DEFAULT '[]'::jsonb;

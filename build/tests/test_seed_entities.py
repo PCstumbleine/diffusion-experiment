@@ -10,9 +10,11 @@ seed_entities.py's own comment for why a global "&"->"and" canonicalization
 would be worse (it would silently change "Johnson & Johnson"'s already-
 working normalized form, among others).
 """
-from conftest import make_raw_document, make_extraction_run
+import pytest
 
-from seed_entities import seed_all
+from conftest import make_entity, make_raw_document, make_extraction_run
+
+from seed_entities import seed_all, insert_curated_alias
 from entity_resolution import resolve_entity_name
 
 # (CIK, SEC-seeded legal name, real-filing spelled-out form) -- all 4
@@ -63,3 +65,62 @@ def test_seeding_is_idempotent_with_the_new_alias(conn):
         second_count = cur.fetchone()[0]
     assert first_count > 0
     assert first_count == second_count
+
+
+# ---------------------------------------------------------------------------
+# Curated "Lilly" alias (code review, post-Recall-Check-001, see
+# build/RECALL_CHECK_001.md): 32 of 34 Lilly events use role="issuer" and
+# already resolve via the issuer-identity shortcut in extraction_runner.py
+# (untouched by this fix). The remaining 2 use bare "Lilly" with
+# role="buyer" -- falls through to ordinary resolution, and no alias
+# covered it before this.
+# ---------------------------------------------------------------------------
+
+def test_lilly_bare_alias_resolves_to_the_eli_lilly_entity(conn):
+    seed_all(conn)
+    document_id = make_raw_document(conn)
+    run_id = make_extraction_run(conn, document_id=document_id)
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT entity_id FROM entities WHERE cik = '0000059478'")
+        lilly_id = str(cur.fetchone()[0])
+
+    resolved = resolve_entity_name(conn, "Lilly", document_id, run_id)
+    assert resolved == lilly_id
+
+
+def test_curated_alias_seeding_fails_loudly_on_collision_with_a_different_entity(conn):
+    """Constructed collision, not real data (per the fix's own explicit
+    instruction) -- a curated alias must never silently skip or overwrite
+    when its normalized form already belongs to a DIFFERENT entity."""
+    other_entity_id = make_entity(conn, "Some Other Lilly Company")
+    with conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO entity_aliases (entity_id, alias_text, normalized_alias, alias_source) "
+            "VALUES (%s, 'Lilly', 'lilly', 'test_setup_collision')",
+            (other_entity_id,),
+        )
+    real_lilly_id = make_entity(conn, "Eli Lilly and Company Test")
+
+    with pytest.raises(RuntimeError):
+        insert_curated_alias(conn, real_lilly_id, "Lilly")
+
+    # And it must not have silently inserted anything for real_lilly_id either.
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT count(*) FROM entity_aliases WHERE entity_id = %s AND normalized_alias = 'lilly'",
+            (real_lilly_id,),
+        )
+        assert cur.fetchone()[0] == 0
+
+
+def test_curated_alias_seeding_succeeds_when_no_collision_exists(conn):
+    entity_id = make_entity(conn, "Eli Lilly and Company Test 2")
+    insert_curated_alias(conn, entity_id, "Lilly")
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT normalized_alias, alias_source FROM entity_aliases WHERE entity_id = %s",
+            (entity_id,),
+        )
+        row = cur.fetchone()
+    assert row == ("lilly", "seed_curated_alias")

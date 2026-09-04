@@ -55,6 +55,21 @@ log = logging.getLogger("seed_entities")
 DB_DSN = "dbname=diffusion_experiment user=postgres"
 CSV_PATH = Path(__file__).parent / "seed_data" / "watchlist_ciks.csv"
 
+# Small, explicitly source-justified per-company aliases -- NOT a general
+# "derive a short form for every legal name" rule (code review,
+# post-Recall-Check-001, explicitly rejected that generalization). Each
+# entry here exists because real telemetry (a recall check, an
+# unresolved-mention count) showed a specific company's own filings use a
+# specific informal name repeatedly -- never invented in advance for
+# companies that haven't shown the need.
+CURATED_ALIASES: dict[str, list[str]] = {
+    # Eli Lilly and Company (CIK 0000059478) self-refers as bare "Lilly"
+    # repeatedly in its own Q2 2026 earnings release (Recall Check 001,
+    # build/RECALL_CHECK_001.md) -- 6 of 34 events named the issuer this
+    # way, none of which resolved under any alias seeded before this.
+    "0000059478": ["Lilly"],
+}
+
 
 def find_entity_by_cik(conn, cik: str) -> str | None:
     with conn.cursor() as cur:
@@ -76,6 +91,29 @@ def insert_alias(conn, entity_id: str, alias_text: str, alias_source: str) -> No
             """,
             (entity_id, alias_text, normalized, alias_source),
         )
+
+
+def insert_curated_alias(conn, entity_id: str, alias_text: str) -> None:
+    """Like insert_alias(), but for CURATED_ALIASES -- a small, explicitly
+    source-justified list, not a mechanical derivation from the SEC legal
+    name. Fails LOUDLY if the normalized form would already resolve to a
+    DIFFERENT entity via entity_aliases -- that's a real naming collision
+    needing a human decision, never a silent skip or silent overwrite."""
+    normalized = normalize_entity_name(alias_text)
+    if not normalized:
+        return
+    with conn.cursor() as cur:
+        cur.execute("SELECT DISTINCT entity_id FROM entity_aliases WHERE normalized_alias = %s", (normalized,))
+        existing_entity_ids = {str(row[0]) for row in cur.fetchall()}
+    colliding = existing_entity_ids - {str(entity_id)}
+    if colliding:
+        raise RuntimeError(
+            f"Refusing to seed curated alias {alias_text!r} (normalizes to {normalized!r}) for "
+            f"entity {entity_id} -- it already resolves to a DIFFERENT entity_id ({sorted(colliding)}) "
+            "via entity_aliases. This is a real naming collision that needs a human decision, "
+            "not an automatic pick."
+        )
+    insert_alias(conn, entity_id, alias_text, "seed_curated_alias")
 
 
 def seed_one(conn, sector: str, watchlist_ticker: str, sec_ticker: str, sec_title: str, cik: str) -> str:
@@ -124,6 +162,9 @@ def seed_one(conn, sector: str, watchlist_ticker: str, sec_ticker: str, sec_titl
         spelled_out = re.sub(r"\s*&\s*", " and ", legal_name)
         spelled_out = re.sub(r"\s+", " ", spelled_out).strip()
         insert_alias(conn, entity_id, spelled_out, "seed_ampersand_and_form")
+
+    for curated_alias_text in CURATED_ALIASES.get(cik, []):
+        insert_curated_alias(conn, entity_id, curated_alias_text)
 
     with conn.cursor() as cur:
         cur.execute("SELECT instrument_id FROM instruments WHERE entity_id = %s", (entity_id,))

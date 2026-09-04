@@ -22,6 +22,7 @@ from extraction_runner import (
     extract_document, claim_extraction_run, process_catalyst, run_extraction_pass,
     validate_extraction_output, classify_relationship_eligibility,
     generate_candidates_for_event_version, ExtractionValidationError,
+    _verify_evidence_span, _repair_escaped_punctuation,
 )
 from llm_client import PROMPT_VERSION  # kept in sync with extraction_prompt_v1.md's schema automatically
 
@@ -504,6 +505,129 @@ def test_validate_extraction_output_allows_null_reference_source_when_no_referen
 
 
 # ---------------------------------------------------------------------------
+# Evidence-span escape-repair (code review, post-Recall-Check-001): a span
+# with spurious backslash-escaping in front of < > : / (seen specifically
+# for spans pulled from nested HTML <table> markup) is repaired and
+# accepted, rather than the whole claim being dropped over a formatting
+# technicality -- but ONLY this one narrow pattern, never generically.
+# ---------------------------------------------------------------------------
+
+def test_verify_evidence_span_exact_match_is_accepted_unchanged():
+    raw_content = "Revenue was $10 billion this quarter."
+    ok, verified, mode = _verify_evidence_span("Revenue was $10 billion", raw_content)
+    assert ok is True
+    assert verified == "Revenue was $10 billion"
+    assert mode == "exact"
+
+
+def test_verify_evidence_span_repairs_escaped_punctuation_when_it_appears_exactly_once():
+    raw_content = "Guidance table: <td>$85.0 billion</td> more text."
+    given_span = r"\<td>$85.0 billion\<\/td>"  # zero real backslashes in raw_content
+    ok, verified, mode = _verify_evidence_span(given_span, raw_content)
+    assert ok is True
+    assert verified == "<td>$85.0 billion</td>"
+    assert mode == "escaped_punctuation_repair"
+
+
+def test_verify_evidence_span_rejects_disqualifying_backslash_without_partial_repair():
+    """A backslash NOT immediately followed by one of < > : / aborts the
+    repair entirely -- this must never "rescue" a span that's malformed
+    for some other reason by fixing only the part that happens to match."""
+    raw_content = "Some markup <td>value</td> here."
+    given_span = r"\foo<td>value</td>"  # backslash followed by 'f' -- disqualifying
+    assert _repair_escaped_punctuation(given_span) is None
+    ok, verified, mode = _verify_evidence_span(given_span, raw_content)
+    assert ok is False
+    assert verified is None and mode is None
+
+
+def test_verify_evidence_span_rejects_repaired_candidate_absent_from_document():
+    raw_content = "Nothing resembling the guidance table is in this document at all."
+    given_span = r"\<td>$85.0 billion\<\/td>"
+    ok, verified, mode = _verify_evidence_span(given_span, raw_content)
+    assert ok is False
+
+
+def test_verify_evidence_span_rejects_repaired_candidate_that_appears_more_than_once():
+    """Ambiguous -- ok even though the repair "works" syntactically, per
+    the exactly-once requirement."""
+    raw_content = "<td>X</td> appears once here and <td>X</td> appears again here."
+    given_span = r"\<td>X\<\/td>"
+    ok, verified, mode = _verify_evidence_span(given_span, raw_content)
+    assert ok is False
+
+
+def test_validate_extraction_output_accepts_and_records_a_span_repair():
+    raw_content = "Guidance table: <td>$85.0 billion</td> more text about revenue."
+    given_span = r"\<td>$85.0 billion\<\/td>"
+    output = {
+        "document_id": "d1", "extraction_prompt_version": PROMPT_VERSION,
+        "events": [{
+            "event_category": "guidance_revision", "catalyst_description": "x",
+            "entities": [{"entity_name": "A Co", "role": "issuer", "evidence_span": "Guidance table"}],
+            "relationships": [],
+            "surprise": {
+                "surprise_type": "revenue_guidance", "observed_value": None, "reference_value": None,
+                "reference_source": None, "reference_timestamp": None,
+                "unit": "USD_billions", "period": "FY2026",
+                "evidence_span": given_span,
+            },
+            "explicit_correction": False,
+        }],
+    }
+    cleaned, drop_log = validate_extraction_output(output, raw_content, PROMPT_VERSION, "d1")
+    assert len(cleaned["events"]) == 1
+    surprise = cleaned["events"][0]["surprise"]
+    assert surprise is not None  # NOT dropped -- repaired and kept
+    assert surprise["evidence_span"] == "<td>$85.0 billion</td>"  # the repaired string, not the original
+    assert not any("surprise" in msg for msg in drop_log)  # never logged as a drop -- it wasn't one
+
+    span_repairs = cleaned["span_repairs"]
+    assert len(span_repairs) == 1
+    assert span_repairs[0] == {
+        "event_index": 0, "claim_type": "surprise", "claim_index": None,
+        "original_span": given_span, "verified_span": "<td>$85.0 billion</td>",
+    }
+
+
+def test_entity_level_span_repair_feeds_event_document_links_with_repaired_string(conn):
+    """The correctness detail the fix explicitly calls out: a repair on an
+    ENTITY's evidence_span (not just surprise/relationship) must be
+    reflected in the cleaned event BEFORE _do_process_catalyst computes
+    event_document_links.evidence_span_start/_end via raw_content.find(),
+    or that lookup silently fails to find the (unrepaired) original."""
+    issuer_id = make_entity(conn, "Acme Corporation")
+    raw_content = "Cover text. <td>Acme Corporation</td> reported results."
+    catalyst_id, doc_ids = make_catalyst_with_documents(
+        conn, [("primary", "primary", raw_content)], issuer_entity_id=issuer_id,
+    )
+    given_span = r"\<td>Acme Corporation\<\/td>"
+    event = {
+        "event_category": "other_material_event", "catalyst_description": "x",
+        "entities": [{"entity_name": "Acme Corporation", "role": "issuer", "evidence_span": given_span}],
+        "relationships": [], "surprise": None, "explicit_correction": False,
+    }
+    outputs = {doc_ids["primary"]: llm_output(doc_ids["primary"], [event])}
+    result = process_full(conn, catalyst_id, outputs)
+    assert result["canonical_events_created"] == 1
+
+    repaired_span = "<td>Acme Corporation</td>"
+    expected_start = raw_content.find(repaired_span)
+    assert expected_start != -1
+
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT evidence_span_start, evidence_span_end FROM event_document_links edl "
+            "JOIN canonical_events ce ON ce.canonical_event_id = edl.canonical_event_id "
+            "WHERE ce.catalyst_id = %s",
+            (catalyst_id,),
+        )
+        start, end = cur.fetchone()
+    assert start == expected_start
+    assert end == expected_start + len(repaired_span)
+
+
+# ---------------------------------------------------------------------------
 # Retry-after-failure and concurrent-claim races (code review fixes #1/#2)
 # ---------------------------------------------------------------------------
 
@@ -640,6 +764,151 @@ def test_issuer_role_resolves_to_the_known_issuer_even_when_the_name_would_not_m
             ("SomeCo Weirdname",),
         )
         assert cur.fetchone()[0] == 0
+
+
+def test_lilly_curated_alias_resolves_role_buyer_entity_and_relationship_endpoint(conn):
+    """Item 2 (code review, post-Recall-Check-001): the 2 of 34 Lilly
+    events naming the issuer as bare "Lilly" use role="buyer", not
+    "issuer" -- so the issuer-identity shortcut above correctly does NOT
+    apply, and this exercises the curated alias instead. Relationships
+    carry no role at all, so entity_a="Lilly" always goes through ordinary
+    resolution regardless -- this is the case that was silently deferred
+    before the fix."""
+    from seed_entities import seed_all
+    seed_all(conn)  # the real, checked-in 108-company CSV -- no network calls
+    with conn.cursor() as cur:
+        cur.execute("SELECT entity_id FROM entities WHERE cik = '0000059478'")
+        lilly_id = str(cur.fetchone()[0])
+
+    target_id = make_entity(conn, "Centessa Pharmaceuticals plc")
+    span = "Lilly agreed to acquire Centessa Pharmaceuticals plc."
+    catalyst_id, doc_ids = make_catalyst_with_documents(
+        conn, [("primary", "primary", span)], issuer_entity_id=lilly_id,
+    )
+    event = {
+        "event_category": "acquisition_or_divestiture", "catalyst_description": "x",
+        "entities": [
+            {"entity_name": "Lilly", "role": "buyer", "evidence_span": span},
+            {"entity_name": "Centessa Pharmaceuticals plc", "role": "target", "evidence_span": span},
+        ],
+        "relationships": [{
+            "entity_a": "Lilly", "entity_b": "Centessa Pharmaceuticals plc",
+            "relationship_type": "acquirer_target", "relationship_evidence": "explicit_named",
+            "source_authority": "company", "document_explicitly_states_transmission_history": False,
+            "evidence_span": span,
+        }],
+        "surprise": None, "explicit_correction": False,
+    }
+    outputs = {doc_ids["primary"]: llm_output(doc_ids["primary"], [event])}
+    result = process_full(conn, catalyst_id, outputs)
+
+    assert result["relationships_deferred_unresolved"] == 0
+    assert result["relationships_written"] == 1
+
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT ee.entity_id, ee.role FROM event_entities ee "
+            "JOIN event_versions ev ON ev.event_version_id = ee.event_version_id "
+            "JOIN canonical_events ce ON ce.canonical_event_id = ev.canonical_event_id "
+            "WHERE ce.catalyst_id = %s",
+            (catalyst_id,),
+        )
+        rows = {(str(r[0]), r[1]) for r in cur.fetchall()}
+    assert (lilly_id, "buyer") in rows
+    assert (target_id, "target") in rows
+
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT count(*) FROM entity_relationships WHERE entity_id_a = %s AND entity_id_b = %s",
+            (lilly_id, target_id),
+        )
+        assert cur.fetchone()[0] == 1
+
+
+# ---------------------------------------------------------------------------
+# Relationship deferral observability (code review, post-Recall-Check-001)
+# -- a relationship deferred on an unresolved endpoint is not silent data
+# loss (the mention is already logged, and manual_resolve.py already
+# backfills it later), but it wasn't previously countable or visible as
+# its own event, distinct from a bare unresolved-mention log entry.
+# ---------------------------------------------------------------------------
+
+def test_relationship_deferred_on_unresolved_endpoint_produces_one_processing_issue(conn):
+    issuer_id = make_entity(conn, "Issuer Co")
+    span = "Issuer Co supplies Totally Unknown Counterparty Inc."
+    catalyst_id, doc_ids = make_catalyst_with_documents(
+        conn, [("primary", "primary", span)], issuer_entity_id=issuer_id,
+    )
+    event = {
+        "event_category": "supply_agreement", "catalyst_description": "x",
+        "entities": [{"entity_name": "Issuer Co", "role": "issuer", "evidence_span": span}],
+        "relationships": [{
+            "entity_a": "Issuer Co", "entity_b": "Totally Unknown Counterparty Inc",
+            "relationship_type": "supplier", "relationship_evidence": "explicit_named",
+            "source_authority": "company", "document_explicitly_states_transmission_history": False,
+            "evidence_span": span,
+        }],
+        "surprise": None, "explicit_correction": False,
+    }
+    outputs = {doc_ids["primary"]: llm_output(doc_ids["primary"], [event])}
+    result = process_full(conn, catalyst_id, outputs)
+
+    assert result["relationships_deferred_unresolved"] == 1
+    assert result["relationships_written"] == 0
+
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT processing_issues FROM catalyst_processing_runs WHERE catalyst_id = %s",
+            (catalyst_id,),
+        )
+        processing_issues = cur.fetchone()[0]
+    assert len(processing_issues) == 1
+    issue = processing_issues[0]
+    assert issue["reason"] == "relationship_endpoint_unresolved"
+    assert issue["entity_a"] == "Issuer Co"
+    assert issue["entity_b"] == "Totally Unknown Counterparty Inc"
+    assert issue["unresolved_endpoints"] == ["entity_b"]
+    assert issue["event_index"] == 0
+    assert issue["relationship_index"] == 0
+    assert issue["document_id"] == doc_ids["primary"]
+
+    # The underlying mention is still logged exactly as before -- this fix
+    # adds visibility, it doesn't replace or duplicate that mechanism.
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT count(*) FROM unresolved_entity_mentions WHERE raw_name = %s",
+            ("Totally Unknown Counterparty Inc",),
+        )
+        assert cur.fetchone()[0] >= 1
+
+
+def test_relationship_with_both_endpoints_resolved_produces_no_processing_issue(conn):
+    issuer_id = make_entity(conn, "Issuer Co")
+    make_entity(conn, "Counterparty Co")
+    span = "Issuer Co supplies Counterparty Co."
+    catalyst_id, doc_ids = make_catalyst_with_documents(
+        conn, [("primary", "primary", span)], issuer_entity_id=issuer_id,
+    )
+    event = {
+        "event_category": "supply_agreement", "catalyst_description": "x",
+        "entities": [{"entity_name": "Issuer Co", "role": "issuer", "evidence_span": span}],
+        "relationships": [{
+            "entity_a": "Issuer Co", "entity_b": "Counterparty Co",
+            "relationship_type": "supplier", "relationship_evidence": "explicit_named",
+            "source_authority": "company", "document_explicitly_states_transmission_history": False,
+            "evidence_span": span,
+        }],
+        "surprise": None, "explicit_correction": False,
+    }
+    outputs = {doc_ids["primary"]: llm_output(doc_ids["primary"], [event])}
+    result = process_full(conn, catalyst_id, outputs)
+
+    assert result["relationships_deferred_unresolved"] == 0
+    assert result["relationships_written"] == 1
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT processing_issues FROM catalyst_processing_runs WHERE catalyst_id = %s", (catalyst_id,))
+        assert cur.fetchone()[0] == []
 
 
 def test_generate_candidates_marks_ineligible_for_late_observed_relationship(conn):

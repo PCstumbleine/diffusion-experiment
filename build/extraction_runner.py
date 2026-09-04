@@ -271,6 +271,60 @@ def claim_extraction_run(conn, document_id: str, prompt_version: str, extractor_
     return str(existing_id), False
 
 
+_ALLOWED_ESCAPED_CHARS = frozenset("<>:/")
+
+
+def _repair_escaped_punctuation(span: str) -> str | None:
+    """One narrow repair (code review, post-Recall-Check-001): a span
+    pulled from nested HTML <table> markup sometimes comes back with a
+    spurious backslash immediately before '<', '>', ':', or '/' that does
+    not appear in the real document (confirmed: zero backslash characters
+    exist anywhere in the Lilly source file this was found against).
+    Returns the repaired string ONLY if every single backslash in the
+    span is immediately followed by one of those four characters -- if
+    even one backslash doesn't qualify, returns None (no repair attempted
+    at all), so this never "rescues" a span that's malformed for some
+    other reason. Touches nothing else in the string: no whitespace
+    normalization, no other escape decoding, no HTML unescaping."""
+    out = []
+    i, n = 0, len(span)
+    while i < n:
+        ch = span[i]
+        if ch == "\\":
+            if i + 1 < n and span[i + 1] in _ALLOWED_ESCAPED_CHARS:
+                out.append(span[i + 1])
+                i += 2
+                continue
+            return None  # a disqualifying backslash -- abort the repair entirely
+        out.append(ch)
+        i += 1
+    return "".join(out)
+
+
+def _verify_evidence_span(span, raw_content: str) -> tuple[bool, str | None, str | None]:
+    """Returns (ok, verified_span, span_match_mode). span_match_mode is
+    "exact" or "escaped_punctuation_repair" when ok, else None.
+    verified_span is the string the caller should actually USE downstream
+    (the original, as given, is preserved separately by the caller for
+    the audit record -- see validate_extraction_output's span_repairs).
+
+    Explicitly NOT done here: generic backslash stripping, Unicode/
+    whitespace normalization, or fuzzy/substring-adjacent matching of any
+    kind. Every accepted span, after at most the one narrow repair above,
+    is an exact, literal, occurs-EXACTLY-ONCE substring of the immutable
+    source document -- a repaired candidate that's still absent, or that
+    matches more than once (ambiguous), is rejected, not guessed at."""
+    if not isinstance(span, str) or span == "":
+        return False, None, None
+    if span in raw_content:
+        return True, span, "exact"
+
+    repaired = _repair_escaped_punctuation(span)
+    if repaired is not None and raw_content.count(repaired) == 1:
+        return True, repaired, "escaped_punctuation_repair"
+    return False, None, None
+
+
 def validate_extraction_output(output: dict, raw_content: str, requested_prompt_version: str,
                                 requested_document_id: str) -> tuple[dict, list[str]]:
     """Validates and cleans one document's raw LLM output. Returns
@@ -312,8 +366,12 @@ def validate_extraction_output(output: dict, raw_content: str, requested_prompt_
     if not isinstance(output["events"], list):
         raise ExtractionValidationError("LLM output 'events' is not a list")
 
-    def span_ok(span) -> bool:
-        return isinstance(span, str) and span != "" and span in raw_content
+    # Audit trail for the one narrow span-repair path (code review,
+    # post-Recall-Check-001) -- stored alongside drop_log in the returned
+    # cleaned_output itself (see extract_document), not a new table/column:
+    # one entry per claim that was accepted via repair rather than an
+    # exact match, so the repair is visible in review, never silent.
+    span_repairs: list[dict] = []
 
     cleaned_events = []
     for i, event in enumerate(output["events"]):
@@ -333,12 +391,24 @@ def validate_extraction_output(output: dict, raw_content: str, requested_prompt_
             if not isinstance(ent, dict) or ent.get("role") not in VALID_ROLES or not ent.get("entity_name"):
                 drop_log.append(f"event[{i}].entities[{j}]: malformed, dropped")
                 continue
-            if not span_ok(ent.get("evidence_span")):
+            original_span = ent.get("evidence_span")
+            ok, verified_span, mode = _verify_evidence_span(original_span, raw_content)
+            if not ok:
                 drop_log.append(
                     f"event[{i}].entities[{j}] ({ent.get('entity_name')!r}): evidence_span not an exact "
                     "substring of raw_content, dropped"
                 )
                 continue
+            if mode == "escaped_punctuation_repair":
+                span_repairs.append({
+                    "event_index": i, "claim_type": "entity", "claim_index": j,
+                    "original_span": original_span, "verified_span": verified_span,
+                })
+                # The repaired string -- not the original -- must be what
+                # downstream code (e.g. _do_process_catalyst's
+                # raw_content.find() for event_document_links offsets)
+                # actually sees, or that lookup silently fails to find it.
+                ent = dict(ent, evidence_span=verified_span)
             cleaned_entities.append(ent)
         if not cleaned_entities:
             drop_log.append(f"event[{i}]: no entities survived validation, whole event dropped")
@@ -356,7 +426,9 @@ def validate_extraction_output(output: dict, raw_content: str, requested_prompt_
             if rel.get("source_authority") not in VALID_SOURCE_AUTHORITY:
                 drop_log.append(f"event[{i}].relationships[{j}]: invalid source_authority, dropped")
                 continue
-            if not span_ok(rel.get("evidence_span")):
+            original_span = rel.get("evidence_span")
+            ok, verified_span, mode = _verify_evidence_span(original_span, raw_content)
+            if not ok:
                 drop_log.append(f"event[{i}].relationships[{j}]: evidence_span not an exact substring, dropped")
                 continue
             mapped_type = RELATIONSHIP_TYPE_SYNONYMS.get(str(rel.get("relationship_type", "")).strip().lower())
@@ -367,34 +439,52 @@ def validate_extraction_output(output: dict, raw_content: str, requested_prompt_
                 )
                 continue
             rel = dict(rel, relationship_type=mapped_type)
+            if mode == "escaped_punctuation_repair":
+                span_repairs.append({
+                    "event_index": i, "claim_type": "relationship", "claim_index": j,
+                    "original_span": original_span, "verified_span": verified_span,
+                })
+                rel = dict(rel, evidence_span=verified_span)
             cleaned_relationships.append(rel)
         event = dict(event, relationships=cleaned_relationships)
 
         surprise = event.get("surprise")
         if surprise is not None:
-            if not isinstance(surprise, dict) or not span_ok(surprise.get("evidence_span")):
+            if not isinstance(surprise, dict):
                 drop_log.append(f"event[{i}].surprise: invalid or bad evidence_span, dropped (kept event, surprise=null)")
                 surprise = None
-            elif (
-                any(surprise.get(k) is not None for k in
-                    ("reference_value", "reference_value_low", "reference_value_high"))
-                and not surprise.get("reference_source")
-            ):
-                # Provenance invariant (code review, post-dry-run-001): a
-                # reference figure with no stated source is an unexplained
-                # benchmark, not a fact. Dropped the same way as any other
-                # per-claim validation failure -- the whole event survives
-                # with surprise=null, not the whole document.
-                drop_log.append(
-                    f"event[{i}].surprise: reference_value(_low/_high) given with no "
-                    "reference_source, dropped (kept event, surprise=null)"
-                )
-                surprise = None
+            else:
+                original_span = surprise.get("evidence_span")
+                ok, verified_span, mode = _verify_evidence_span(original_span, raw_content)
+                if not ok:
+                    drop_log.append(f"event[{i}].surprise: invalid or bad evidence_span, dropped (kept event, surprise=null)")
+                    surprise = None
+                elif (
+                    any(surprise.get(k) is not None for k in
+                        ("reference_value", "reference_value_low", "reference_value_high"))
+                    and not surprise.get("reference_source")
+                ):
+                    # Provenance invariant (code review, post-dry-run-001): a
+                    # reference figure with no stated source is an unexplained
+                    # benchmark, not a fact. Dropped the same way as any other
+                    # per-claim validation failure -- the whole event survives
+                    # with surprise=null, not the whole document.
+                    drop_log.append(
+                        f"event[{i}].surprise: reference_value(_low/_high) given with no "
+                        "reference_source, dropped (kept event, surprise=null)"
+                    )
+                    surprise = None
+                elif mode == "escaped_punctuation_repair":
+                    span_repairs.append({
+                        "event_index": i, "claim_type": "surprise", "claim_index": None,
+                        "original_span": original_span, "verified_span": verified_span,
+                    })
+                    surprise = dict(surprise, evidence_span=verified_span)
             event = dict(event, surprise=surprise)
 
         cleaned_events.append(event)
 
-    return dict(output, events=cleaned_events), drop_log
+    return dict(output, events=cleaned_events, span_repairs=span_repairs), drop_log
 
 
 def extract_document(conn, llm_client, document_id: str, raw_content: str, prompt_version: str,
@@ -544,15 +634,24 @@ def claim_catalyst_processing(conn, catalyst_id: str, prompt_version: str, extra
 
 
 def _mark_catalyst_processing(conn, catalyst_id: str, prompt_version: str, extractor_model_id: str,
-                               extractor_model_version: str, status: str, error: str | None = None) -> None:
+                               extractor_model_version: str, status: str, error: str | None = None,
+                               processing_issues: list[dict] | None = None) -> None:
+    """processing_issues (migration 005) is left UNCHANGED when None is
+    passed (the COALESCE below) -- used on the failure path, where the
+    batch that would have produced a fresh list was just rolled back, so
+    there's nothing new and correct to write; the success path always
+    passes the run's real, complete list, overwriting whatever was there."""
     with conn.cursor() as cur:
         cur.execute(
             """
-            UPDATE catalyst_processing_runs SET status = %s, error = %s, completed_at = now()
+            UPDATE catalyst_processing_runs
+            SET status = %s, error = %s, completed_at = now(),
+                processing_issues = COALESCE(%s, processing_issues)
             WHERE catalyst_id = %s AND extraction_prompt_version = %s
               AND extractor_model_id = %s AND extractor_model_version = %s
             """,
-            (status, error, catalyst_id, prompt_version, extractor_model_id, extractor_model_version),
+            (status, error, psycopg2.extras.Json(processing_issues) if processing_issues is not None else None,
+             catalyst_id, prompt_version, extractor_model_id, extractor_model_version),
         )
     conn.commit()
 
@@ -694,7 +793,15 @@ def _do_process_catalyst(conn, catalyst_id: str, docs: list, prompt_version: str
         "mentions_matched": 0, "mentions_unresolved": 0,
         "canonical_events_created": 0, "relationships_written": 0,
         "candidates_eligible": 0, "candidates_ineligible": 0,
+        "relationships_deferred_unresolved": 0,
     }
+    # One entry per relationship deferred on an unresolved endpoint (code
+    # review, post-Recall-Check-001) -- written to catalyst_processing_runs.
+    # processing_issues on success (see process_catalyst). Distinct from
+    # unresolved_entity_mentions (still logged exactly as before, by
+    # resolve() below) and from validation_drop_log (a different pipeline
+    # stage -- see migration 005's own comment).
+    processing_issues: list[dict] = []
 
     def resolve(raw_name: str, document_id: str, extraction_run_id: str) -> str | None:
         entity_id = entity_resolution.resolve_entity_name(
@@ -730,14 +837,14 @@ def _do_process_catalyst(conn, catalyst_id: str, docs: list, prompt_version: str
         doc_meta = {str(doc_id): (content, public_at) for doc_id, content, public_at in cur.fetchall()}
     raw_content_by_doc = {doc_id: meta[0] for doc_id, meta in doc_meta.items()}
 
-    groups: dict[tuple, list[tuple[str, dict, list[tuple[str, str]]]]] = {}
+    groups: dict[tuple, list[tuple[str, int, dict, list[tuple[str, str]]]]] = {}
     primary_document_id = next((doc_id for doc_id, role, _s, _c in docs if role == "primary"), None)
 
     for document_id, _role, status, cleaned_output in docs:
         if status != "success" or cleaned_output is None:
             continue
         extraction_run_id = doc_run_ids[document_id]
-        for event in cleaned_output.get("events", []):
+        for event_index, event in enumerate(cleaned_output.get("events", [])):
             resolved_entities = []
             for ent in event.get("entities", []):
                 if ent["role"] == "issuer" and issuer_entity_id is not None:
@@ -764,7 +871,7 @@ def _do_process_catalyst(conn, catalyst_id: str, docs: list, prompt_version: str
                     resolved_entities.append((entity_id, ent["role"]))
             role_set = frozenset(resolved_entities)
             fingerprint = _event_fingerprint(event, role_set)
-            groups.setdefault(fingerprint, []).append((document_id, event, resolved_entities))
+            groups.setdefault(fingerprint, []).append((document_id, event_index, event, resolved_entities))
 
     # ---- Pass 1: canonicalize every event and write every relationship ----
     event_version_ids: list[str] = []
@@ -792,7 +899,7 @@ def _do_process_catalyst(conn, catalyst_id: str, docs: list, prompt_version: str
         event_version_ids.append(str(event_version_id))
 
         all_resolved_roles: set[tuple[str, str]] = set()
-        for document_id, event, resolved_entities in members:
+        for document_id, event_index, event, resolved_entities in members:
             all_resolved_roles.update(resolved_entities)
             extraction_run_id = doc_run_ids[document_id]
 
@@ -840,10 +947,36 @@ def _do_process_catalyst(conn, catalyst_id: str, docs: list, prompt_version: str
                     (canonical_event_id, document_id, link_role, evidence_start, evidence_end),
                 )
 
-            for rel in event.get("relationships", []):
+            for relationship_index, rel in enumerate(event.get("relationships", [])):
                 entity_id_a = resolve(rel["entity_a"], document_id, extraction_run_id)
                 entity_id_b = resolve(rel["entity_b"], document_id, extraction_run_id)
-                if entity_id_a is None or entity_id_b is None or entity_id_a == entity_id_b:
+                if entity_id_a is None or entity_id_b is None:
+                    # Observability for a deferred relationship ASSERTION
+                    # (code review, post-Recall-Check-001) -- distinct from
+                    # the bare-mention logging resolve() already did above.
+                    # Not silent data loss in the strong sense: the mention
+                    # is already in unresolved_entity_mentions, and
+                    # manual_resolve.py's _write_backfilled_relationships
+                    # already backfills this relationship once that mention
+                    # is resolved. This just makes the deferral itself
+                    # visible and countable instead of a bare `continue`.
+                    counts["relationships_deferred_unresolved"] += 1
+                    unresolved_endpoints = []
+                    if entity_id_a is None:
+                        unresolved_endpoints.append("entity_a")
+                    if entity_id_b is None:
+                        unresolved_endpoints.append("entity_b")
+                    processing_issues.append({
+                        "document_id": document_id,
+                        "event_index": event_index,
+                        "relationship_index": relationship_index,
+                        "entity_a": rel.get("entity_a"),
+                        "entity_b": rel.get("entity_b"),
+                        "unresolved_endpoints": unresolved_endpoints,
+                        "reason": "relationship_endpoint_unresolved",
+                    })
+                    continue
+                if entity_id_a == entity_id_b:
                     continue
                 _content, canonical_public_at = doc_meta.get(document_id, (None, None))
                 public_at = canonical_public_at or system_observed_at
@@ -893,6 +1026,7 @@ def _do_process_catalyst(conn, catalyst_id: str, docs: list, prompt_version: str
         counts["candidates_eligible"] += candidate_counts["eligible"]
         counts["candidates_ineligible"] += candidate_counts["ineligible"]
 
+    counts["processing_issues"] = processing_issues
     return counts
 
 
@@ -932,6 +1066,7 @@ def process_catalyst(conn, catalyst_id: str, prompt_version: str, extractor_mode
 
     _mark_catalyst_processing(
         conn, catalyst_id, prompt_version, extractor_model_id, extractor_model_version, status="success",
+        processing_issues=result.get("processing_issues", []),
     )
     conn.commit()
     return result

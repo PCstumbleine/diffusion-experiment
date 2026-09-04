@@ -397,6 +397,13 @@ class Filing:
     primary_document: str
 
 
+def parse_acceptance_datetime(filing: Filing) -> datetime:
+    """SEC's own acceptanceDateTime, parsed once, consistently -- shared by
+    insert_raw_document (sec_acceptance_at) and poll_once's --since filter
+    below, so the two never drift apart on how they read the same field."""
+    return datetime.fromisoformat(filing.acceptance_datetime.replace("Z", "+00:00"))
+
+
 @dataclass
 class FilingDocument:
     filename: str
@@ -625,7 +632,7 @@ def insert_raw_document(conn, cik: str, filing: Filing, doc: FilingDocument, raw
 
     # Conservative, honest timestamp choice (fix #3): SEC's own acceptance
     # time is NOT treated as when the document became public.
-    sec_acceptance_at = datetime.fromisoformat(filing.acceptance_datetime.replace("Z", "+00:00"))
+    sec_acceptance_at = parse_acceptance_datetime(filing)
 
     # Fix #9: precision must be at least the poll interval, AND at least as
     # wide as the actual observed gap since acceptance (honest for backfill
@@ -754,8 +761,9 @@ def ingest_filing(conn, client: EdgarClient, cik: str, filing: Filing, entity_id
     return catalyst_id
 
 
-def poll_once(conn, client: EdgarClient, watchlist: list[tuple[str, str]], dry_run: bool = False):
-    """Fix #15 (v4 revision note): no time-based lookback filter any more.
+def poll_once(conn, client: EdgarClient, watchlist: list[tuple[str, str]], dry_run: bool = False,
+              since: datetime | None = None, max_new_filings_per_company: int | None = None):
+    """Fix #15 (v4 revision note): no AUTOMATIC time-based lookback filter.
     A review round argued that any acceptance/filing-date cutoff is an
     unnecessary heuristic layered on an already-bounded input -- SEC caps
     each company's submissions 'recent' array generously (see
@@ -764,7 +772,17 @@ def poll_once(conn, client: EdgarClient, watchlist: list[tuple[str, str]], dry_r
     time window. Scanning every target-form filing every poll and letting
     that check decide what's new removes the "silently missed a
     late-disseminated filing" bug class entirely instead of padding
-    around it with a buffer (v3's DISSEMINATION_DELAY_BUFFER, now removed)."""
+    around it with a buffer (v3's DISSEMINATION_DELAY_BUFFER, now removed).
+    That reasoning still holds for the DEFAULT (both args None below) --
+    this fix does not reinstate hidden filtering.
+
+    since / max_new_filings_per_company (added post-Dry-Run-001: scoping
+    a poll to a handful of companies via --only-ciks still pulled in each
+    company's ENTIRE historical backlog -- 411 documents for 4 companies
+    -- since nothing capped filing volume) are EXPLICIT, operator-supplied
+    controls, not automatic heuristics: both default to None (unlimited),
+    so ordinary polling behavior is completely unchanged unless a caller
+    asks for one of these."""
     for cik, entity_id in watchlist:
         try:
             submissions = client.get_submissions(cik)
@@ -775,9 +793,34 @@ def poll_once(conn, client: EdgarClient, watchlist: list[tuple[str, str]], dry_r
             log.exception("Failed polling CIK %s (entity_id=%s)", cik, entity_id)
             continue
 
+        new_filings_ingested = 0
         for filing in filings:
+            if since is not None:
+                accepted_at = parse_acceptance_datetime(filing)
+                if accepted_at < since:
+                    log.info("Skipping filing %s for CIK %s (entity_id=%s) -- accepted %s, "
+                              "before --since cutoff %s",
+                              filing.accession_number, cik, entity_id,
+                              accepted_at.isoformat(), since.isoformat())
+                    continue
+
+            if max_new_filings_per_company is not None and new_filings_ingested >= max_new_filings_per_company:
+                log.info("Reached --max-new-filings-per-company=%d for CIK %s (entity_id=%s) -- "
+                          "stopping further ingestion for this company this invocation. "
+                          "Already-ingested filings are unaffected; this only limits how much "
+                          "NEW work this one invocation does, not what exists on SEC.",
+                          max_new_filings_per_company, cik, entity_id)
+                break
+
+            # Checked BEFORE ingest_filing purely so --max-new-filings-per-company
+            # can tell a genuinely new filing apart from a dedup no-op even
+            # under --dry-run (which always returns None below either way,
+            # by design -- see fix #2's own note on ingest_filing -- so the
+            # return value alone can't distinguish the two cases there).
+            already_ingested = accession_already_ingested(conn, filing.accession_number)
+
             try:
-                ingest_filing(conn, client, cik, filing, entity_id=entity_id, dry_run=dry_run)
+                catalyst_id = ingest_filing(conn, client, cik, filing, entity_id=entity_id, dry_run=dry_run)
             except Exception:
                 # A prior version let this exception propagate out of the
                 # for-loop entirely, which silently skipped every OTHER new
@@ -794,6 +837,10 @@ def poll_once(conn, client: EdgarClient, watchlist: list[tuple[str, str]], dry_r
                 log.exception("Failed ingesting filing %s for CIK %s (entity_id=%s) -- "
                               "continuing with the rest of this poll's batch",
                               filing.accession_number, cik, entity_id)
+                continue
+
+            if not already_ingested:
+                new_filings_ingested += 1
 
 
 def main():
@@ -808,7 +855,19 @@ def main():
                          help="Comma-separated CIKs to scope this invocation to (e.g. '1045810,2488'), "
                               "without touching watchlist_membership itself -- for a small dry run "
                               "against a handful of companies rather than the full watchlist.")
+    parser.add_argument("--since", default=None, metavar="YYYY-MM-DD",
+                         help="Skip any filing whose SEC acceptance timestamp is before this date "
+                              "(UTC midnight). No default cutoff -- omit for normal unlimited polling; "
+                              "this is an explicit operator control, not automatic lookback filtering.")
+    parser.add_argument("--max-new-filings-per-company", type=int, default=None, metavar="N",
+                         help="Stop ingesting NEW filings for a given CIK once N have been ingested in "
+                              "this invocation (already-ingested/deduplicated filings never count against "
+                              "this). No default cap -- omit for normal unlimited polling.")
     args = parser.parse_args()
+
+    since_dt = None
+    if args.since:
+        since_dt = datetime.strptime(args.since, "%Y-%m-%d").replace(tzinfo=timezone.utc)
 
     client = EdgarClient(USER_AGENT)
     conn = psycopg2.connect(args.dsn)
@@ -819,10 +878,12 @@ def main():
                       "run build/seed_entities.py first, or check --only-ciks.")
             sys.exit(1)
         if args.once:
-            poll_once(conn, client, watchlist, dry_run=args.dry_run)
+            poll_once(conn, client, watchlist, dry_run=args.dry_run, since=since_dt,
+                      max_new_filings_per_company=args.max_new_filings_per_company)
         else:
             while True:
-                poll_once(conn, client, watchlist, dry_run=args.dry_run)
+                poll_once(conn, client, watchlist, dry_run=args.dry_run, since=since_dt,
+                          max_new_filings_per_company=args.max_new_filings_per_company)
                 time.sleep(POLL_INTERVAL_SECONDS)
     finally:
         conn.close()

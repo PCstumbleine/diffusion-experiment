@@ -577,3 +577,125 @@ def test_poll_once_scans_all_target_filings_regardless_of_age(conn):
     poll_once(conn, client, [("0000320193", None)], dry_run=False)
 
     assert accession_already_ingested(conn, accession)
+
+
+# ---------------------------------------------------------------------------
+# --since / --max-new-filings-per-company (post-Dry-Run-001: --only-ciks
+# alone still pulled in each company's ENTIRE historical backlog -- 411
+# documents for 4 companies). Both explicit, operator-supplied controls,
+# not automatic heuristics -- fix #15's own no-hidden-filtering reasoning
+# is unchanged for the default (both args None) case.
+# ---------------------------------------------------------------------------
+
+def test_since_skips_filings_before_cutoff_and_includes_on_or_after(conn):
+    """Uses sec_acceptance_at (SEC's own timestamp), never ingestion order
+    -- see poll_once's own docstring and edgar_ingest_worker.py's fix #3
+    for why that's the correct clock here."""
+    cutoff = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    before_accession = "0000320193-26-000801"
+    on_accession = "0000320193-26-000802"
+    primary_docs = {before_accession: "before.htm", on_accession: "on.htm"}
+
+    submissions = {
+        "filings": {
+            "recent": {
+                "form": ["8-K", "8-K"],
+                "accessionNumber": [before_accession, on_accession],
+                "filingDate": ["2026-05-01", "2026-06-01"],
+                "acceptanceDateTime": [
+                    "2026-05-31T23:59:59.000Z",  # just before the cutoff -- must be skipped
+                    "2026-06-01T00:00:00.000Z",  # exactly at the cutoff -- must be included
+                ],
+                "primaryDocument": ["before.htm", "on.htm"],
+            }
+        }
+    }
+    client = MagicMock()
+    client.get_submissions.return_value = submissions
+    client.get_filing_index_headers.side_effect = lambda cik, acc_no_dashes, acc_with_dashes: (
+        f"<DOCUMENT> <TYPE>8-K <SEQUENCE>1 <FILENAME>{primary_docs[acc_with_dashes]} <DESCRIPTION>8-K </DOCUMENT>"
+    )
+    client.get_document_text.side_effect = lambda cik, acc, filename: "body"
+
+    poll_once(conn, client, [("0000320193", None)], dry_run=False, since=cutoff)
+
+    assert not accession_already_ingested(conn, before_accession)
+    assert accession_already_ingested(conn, on_accession)
+
+
+def test_max_new_filings_per_company_stops_at_n_without_affecting_other_companies(conn):
+    """The cap is per-company and resets for each company in the same
+    invocation -- company B must still get its own full budget of N,
+    unaffected by whatever company A already used."""
+    cik_a, cik_b = "0000320193", "0000789019"
+    submissions_a = {
+        "filings": {"recent": {
+            "form": ["8-K", "8-K", "8-K"],
+            "accessionNumber": ["0000320193-26-000901", "0000320193-26-000902", "0000320193-26-000903"],
+            "filingDate": ["2026-01-01", "2026-01-02", "2026-01-03"],
+            "acceptanceDateTime": [
+                "2026-01-01T10:00:00.000Z", "2026-01-02T10:00:00.000Z", "2026-01-03T10:00:00.000Z",
+            ],
+            "primaryDocument": ["a1.htm", "a2.htm", "a3.htm"],
+        }}
+    }
+    submissions_b = {
+        "filings": {"recent": {
+            "form": ["8-K", "8-K"],
+            "accessionNumber": ["0000789019-26-000901", "0000789019-26-000902"],
+            "filingDate": ["2026-01-01", "2026-01-02"],
+            "acceptanceDateTime": ["2026-01-01T10:00:00.000Z", "2026-01-02T10:00:00.000Z"],
+            "primaryDocument": ["b1.htm", "b2.htm"],
+        }}
+    }
+    primary_docs = {
+        "0000320193-26-000901": "a1.htm", "0000320193-26-000902": "a2.htm", "0000320193-26-000903": "a3.htm",
+        "0000789019-26-000901": "b1.htm", "0000789019-26-000902": "b2.htm",
+    }
+
+    client = MagicMock()
+    client.get_submissions.side_effect = lambda cik: submissions_a if cik == cik_a else submissions_b
+    client.get_filing_index_headers.side_effect = lambda cik, acc_no_dashes, acc_with_dashes: (
+        f"<DOCUMENT> <TYPE>8-K <SEQUENCE>1 <FILENAME>{primary_docs[acc_with_dashes]} <DESCRIPTION>8-K </DOCUMENT>"
+    )
+    client.get_document_text.side_effect = lambda cik, acc, filename: "body"
+
+    poll_once(conn, client, [(cik_a, None), (cik_b, None)], dry_run=False, max_new_filings_per_company=1)
+
+    # Company A: only the first of 3 filings ingested.
+    assert accession_already_ingested(conn, "0000320193-26-000901")
+    assert not accession_already_ingested(conn, "0000320193-26-000902")
+    assert not accession_already_ingested(conn, "0000320193-26-000903")
+
+    # Company B: gets its OWN budget of 1 -- not zeroed out by A's usage.
+    assert accession_already_ingested(conn, "0000789019-26-000901")
+    assert not accession_already_ingested(conn, "0000789019-26-000902")
+
+
+def test_since_and_max_new_filings_per_company_default_to_no_limit(conn):
+    """Regression guard: omitting both new flags must reproduce fix #15's
+    original unlimited-scan behavior exactly (all target-form filings
+    ingested, regardless of age or count) -- this can't silently change
+    later without a test catching it."""
+    accessions = [f"0000320193-26-0010{i:02d}" for i in range(5)]
+    primary_docs = {acc: f"doc{i}.htm" for i, acc in enumerate(accessions)}
+    submissions = {
+        "filings": {"recent": {
+            "form": ["8-K"] * 5,
+            "accessionNumber": accessions,
+            "filingDate": ["2020-01-01"] * 5,
+            "acceptanceDateTime": ["2020-01-01T10:00:00.000Z"] * 5,
+            "primaryDocument": [primary_docs[acc] for acc in accessions],
+        }}
+    }
+    client = MagicMock()
+    client.get_submissions.return_value = submissions
+    client.get_filing_index_headers.side_effect = lambda cik, acc_no_dashes, acc_with_dashes: (
+        f"<DOCUMENT> <TYPE>8-K <SEQUENCE>1 <FILENAME>{primary_docs[acc_with_dashes]} <DESCRIPTION>8-K </DOCUMENT>"
+    )
+    client.get_document_text.side_effect = lambda cik, acc, filename: "body"
+
+    poll_once(conn, client, [("0000320193", None)], dry_run=False)  # since/max_new_filings_per_company both omitted
+
+    for acc in accessions:
+        assert accession_already_ingested(conn, acc)

@@ -11,7 +11,7 @@ and hoped to work.
   confirming the most important fix — a relationship valid since 2022 but
   not publicly known until 2026 correctly stays invisible to a 2024 query.
   As of the extraction-runner bridge, this is no longer the *only* schema
-  file — see `migrations/` below. Apply all four, in order, on a fresh
+  file — see `migrations/` below. Apply all five, in order, on a fresh
   database:
   ```
   createdb diffusion_experiment
@@ -19,6 +19,7 @@ and hoped to work.
   psql -d diffusion_experiment -f migrations/002_extraction_runner.sql
   psql -d diffusion_experiment -f migrations/003_extraction_runner_fixes.sql
   psql -d diffusion_experiment -f migrations/004_range_valued_guidance.sql
+  psql -d diffusion_experiment -f migrations/005_relationship_deferral_observability.sql
   ```
   `schema.sql` itself is treated as migration "001" retroactively (it was
   never versioned before now); `migrations/002_extraction_runner.sql` is
@@ -34,6 +35,9 @@ and hoped to work.
   `_high` and `reference_value_low`/`_high` to `extracted_events`, found
   necessary by Dry Run 001 (`build/DRY_RUN_REPORT_001.md`) — see "A
   post-dry-run code review" below.
+  `migrations/005_relationship_deferral_observability.sql` adds
+  `catalyst_processing_runs.processing_issues`, from Recall Check 001
+  (`build/RECALL_CHECK_001.md`) — see "Recall Check 001" below.
 - `extraction_prompt_v1.md` — the prompt that reads a document and pulls out
   structured facts (event type, companies involved, raw numbers). Its JSON
   output schema was checked and parses correctly. It deliberately never
@@ -339,7 +343,8 @@ inside test fixtures; nothing connected a real filing to them. New files:
   with `system_observed_at` set to the real resolution timestamp, never
   backdated.
 - `migrations/002_extraction_runner.sql`, `migrations/003_extraction_runner_fixes.sql`,
-  `migrations/004_range_valued_guidance.sql` — see above.
+  `migrations/004_range_valued_guidance.sql`,
+  `migrations/005_relationship_deferral_observability.sql` — see above.
 - 27 new tests (`tests/test_entity_resolution.py`,
   `tests/test_extraction_runner.py`, `tests/test_manual_resolve.py`, plus
   one more added to `tests/test_edgar_ingest_worker.py` for the live bug
@@ -352,12 +357,12 @@ inside test fixtures; nothing connected a real filing to them. New files:
   a failed extraction, a genuine two-connection concurrent-claim race,
   full-pipeline idempotency, and atomicity under a forced mid-batch
   failure — bringing the suite to 79 tests total, all passing. (Dry Run
-  001's post-dry-run fix round added 15 more, then the
-  `--since`/`--max-new-filings-per-company` round added 3 more — see
-  below for both — for 97 total as of this writing; `build/tests/
-  pytest_run_002.xml`/`.out.txt` and `pytest_run_003.xml`/`.out.txt` are
-  real, captured output for those counts, not inferred from
-  `.pytest_cache`.)
+  001's post-dry-run fix round added 15 more, the
+  `--since`/`--max-new-filings-per-company` round added 3 more, and
+  Recall Check 001's fix round added 13 more — see below for all three —
+  for 110 total as of this writing; `build/tests/pytest_run_002.xml`
+  through `pytest_run_004.xml` (each with a matching `.out.txt`) are real,
+  captured output for those counts, not inferred from `.pytest_cache`.)
 
 **A live bug found while wiring this up, not in the design doc:** every
 real `-index-headers.html` page `edgar_ingest_worker.py` fetches serves
@@ -577,6 +582,54 @@ N for one company without affecting another in the same invocation; and
 an explicit regression test that omitting both flags reproduces fix #15's
 original unlimited-scan behavior exactly.
 
+## Recall Check 001 and its three fixes — evidence-span repair, a curated Lilly alias, relationship-deferral observability
+
+`build/RECALL_CHECK_001.md` is an independent blind read of the same
+Lilly Q2 2026 document Dry Run 001 used, against extraction prompt v1.2.0:
+6 events (Dry Run 001's hand extraction) vs. 34 (the blind read) on the
+identical document. Verified, not just eyeballed — 59 of 62 evidence spans
+checked programmatically against the real source text; the 3 that failed,
+and a second entity-resolution gap, drove these three narrow fixes:
+
+1. **Evidence-span escape-repair** (`extraction_runner.py`): the 3 failing
+   spans all had spurious backslash-escaping (`\<`, `\:`, `\/`) in front
+   of characters that don't appear in the real document at all — pulled
+   from nested HTML `<table>` markup, not a fabricated quote. A span is
+   now repaired ONLY if *every* backslash in it is immediately followed
+   by `<`, `>`, `:`, or `/` (even one disqualifying backslash aborts the
+   repair entirely — see `_repair_escaped_punctuation`), and only accepted
+   if the repaired candidate then appears in the document **exactly
+   once**. No generic backslash stripping, no Unicode/whitespace
+   normalization, no fuzzy matching. The repaired string (not the
+   original) is what downstream code actually uses — `event_document_links`
+   offsets included — and every repair is recorded in `cleaned_llm_output.
+   span_repairs` (`original_span`/`verified_span`/`span_match_mode`), not
+   silent.
+2. **A curated `"Lilly"` alias** (`seed_entities.py`): a second,
+   independent entity-resolution gap — 2 of 34 events name the issuer as
+   bare `"Lilly"` with `role="buyer"`, not `"issuer"`, so
+   `extraction_runner.py`'s issuer-identity shortcut correctly does not
+   apply (and was NOT touched by this fix). `CURATED_ALIASES` adds exactly
+   one source-justified alias for this one entity — deliberately not a
+   general "derive short forms for all 108 companies" rule; `insert_curated_
+   alias()` fails loudly (never silently skips or overwrites) if the
+   normalized form would collide with a different entity's existing alias.
+3. **Relationship-deferral observability** (migration 005,
+   `catalyst_processing_runs.processing_issues`): when a relationship's
+   endpoint fails to resolve, the mention was already logged
+   (`unresolved_entity_mentions`) and already backfillable
+   (`manual_resolve.py`) — but the specific relationship *assertion* being
+   deferred had no visibility of its own beyond a bare `continue`. Now
+   counted (`relationships_deferred_unresolved`) and recorded as a
+   structured entry (document, event/relationship index, both raw names,
+   which endpoint(s) failed) — deliberately a separate column from
+   `extraction_runs.validation_drop_log`, since this is a distinct
+   pipeline stage (post-validation entity resolution, not validation)
+   and reads that way to anyone debugging later.
+
+13 new tests, 110 total — `build/tests/pytest_run_004.xml`/`.out.txt` are
+the real, captured output for this count.
+
 ## How to actually run this yourself
 
 You'll need Postgres installed and running, and Python with `psycopg2-binary`,
@@ -591,6 +644,7 @@ psql -d diffusion_experiment -f schema.sql
 psql -d diffusion_experiment -f migrations/002_extraction_runner.sql
 psql -d diffusion_experiment -f migrations/003_extraction_runner_fixes.sql
 psql -d diffusion_experiment -f migrations/004_range_valued_guidance.sql
+psql -d diffusion_experiment -f migrations/005_relationship_deferral_observability.sql
 python3 seed_entities.py
 cd tests && python3 -m pytest -v
 ```

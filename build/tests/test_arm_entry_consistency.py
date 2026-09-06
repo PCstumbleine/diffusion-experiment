@@ -262,8 +262,13 @@ def test_arm_outcome_accepts_exit_quote_matching_its_entrys_instrument(conn):
     with conn.cursor() as cur:
         cur.execute(
             """
-            INSERT INTO arm_outcomes (entry_id, horizon_label, exit_timestamp, exit_quote_snapshot_id)
-            VALUES (%s, '1day', now(), %s) RETURNING outcome_id
+            INSERT INTO arm_outcomes (
+                entry_id, horizon_label, exit_timestamp, exit_quote_snapshot_id,
+                entry_price_source, exit_price_source, entry_fee, exit_fee,
+                return_method_version, fee_method_version, exit_reason
+            )
+            VALUES (%s, '1day', now(), %s, 'nbbo_side_proxy', 'nbbo_side_proxy', 0, 0, 'test', 'test', 'horizon')
+            RETURNING outcome_id
             """,
             (entry_id, quote_id),
         )

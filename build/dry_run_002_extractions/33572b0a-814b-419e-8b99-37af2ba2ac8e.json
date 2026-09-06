@@ -1,0 +1,31 @@
+{
+  "document_id": "33572b0a-814b-419e-8b99-37af2ba2ac8e",
+  "extraction_prompt_version": "1.2.0",
+  "events": [
+    {
+      "event_category": "buyback_or_capital_return",
+      "catalyst_description": "Broadcom's Board declared a quarterly cash dividend of $0.65 per share, payable September 30, 2026.",
+      "entities": [
+        {
+          "entity_name": "Broadcom Inc.",
+          "role": "issuer",
+          "evidence_span": "the Company announced that the Board of Directors has declared a quarterly cash dividend on the Company&#8217;s common stock of $0.65 per share."
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "quarterly_dividend_per_share",
+        "observed_value": 0.65,
+        "reference_value": null,
+        "reference_source": null,
+        "reference_timestamp": null,
+        "unit": "USD_per_share",
+        "period": "Q3 2026",
+        "evidence_span": "the Company announced that the Board of Directors has declared a quarterly cash dividend on the Company&#8217;s common stock of $0.65 per share."
+      },
+      "source_published_at": "September 2, 2026",
+      "explicit_correction": false
+    }
+  ],
+  "unsupported_claims_noted": []
+}

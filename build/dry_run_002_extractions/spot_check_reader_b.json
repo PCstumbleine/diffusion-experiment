@@ -1,0 +1,182 @@
+{
+  "document_id": "REPLACE_ME",
+  "extraction_prompt_version": "1.2.0",
+  "events": [
+    {
+      "event_category": "earnings_surprise",
+      "catalyst_description": "Broadcom Inc. reported its financial results for the third quarter of fiscal year 2026 (ended August 2, 2026), including net revenue of $29.6 billion (up 86% year-over-year), GAAP diluted EPS of $2.68 and non-GAAP diluted EPS of $3.32, GAAP operating income of $16.0 billion and non-GAAP operating income of $20.1 billion, and free cash flow of $13.7 billion.",
+      "entities": [
+        {
+          "entity_name": "Broadcom Inc.",
+          "role": "issuer",
+          "evidence_span": "Broadcom Inc. (Nasdaq&amp;#58; AVGO)"
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "revenue_actual",
+        "observed_value": 29.6,
+        "reference_value": null,
+        "observed_value_low": null,
+        "observed_value_high": null,
+        "reference_value_low": null,
+        "reference_value_high": null,
+        "reference_source": null,
+        "reference_timestamp": null,
+        "unit": "USD billions",
+        "period": "fiscal Q3 2026 (quarter ended August 2, 2026)",
+        "evidence_span": "Revenue of $29.6 billion for the third quarter, up 86 percent from the prior year period"
+      },
+      "source_published_at": "September 2, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "earnings_surprise",
+      "catalyst_description": "Broadcom's CEO stated that fiscal Q3 2026 AI semiconductor revenue was $16.7 billion, up 221% year-over-year and 54% quarter-over-quarter.",
+      "entities": [
+        {
+          "entity_name": "Broadcom Inc.",
+          "role": "issuer",
+          "evidence_span": "Broadcom Inc. (Nasdaq&amp;#58; AVGO)"
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "ai_semiconductor_revenue_actual",
+        "observed_value": 16.7,
+        "reference_value": null,
+        "observed_value_low": null,
+        "observed_value_high": null,
+        "reference_value_low": null,
+        "reference_value_high": null,
+        "reference_source": null,
+        "reference_timestamp": null,
+        "unit": "USD billions",
+        "period": "fiscal Q3 2026",
+        "evidence_span": "Q3 AI semiconductor revenue of $16.7 billion grew 221% year-over-year, and 54% quarter-over-quarter"
+      },
+      "source_published_at": "September 2, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "guidance_revision",
+      "catalyst_description": "Broadcom issued its business outlook for the fourth quarter of fiscal year 2026 (ending November 1, 2026), guiding to revenue of approximately $34.8 billion (an increase of 93% from the prior year period) and non-GAAP operating income of approximately 66% of projected revenue.",
+      "entities": [
+        {
+          "entity_name": "Broadcom Inc.",
+          "role": "issuer",
+          "evidence_span": "Broadcom Inc. (Nasdaq&amp;#58; AVGO)"
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "revenue_guidance",
+        "observed_value": 34.8,
+        "reference_value": null,
+        "observed_value_low": null,
+        "observed_value_high": null,
+        "reference_value_low": null,
+        "reference_value_high": null,
+        "reference_source": null,
+        "reference_timestamp": null,
+        "unit": "USD billions",
+        "period": "fiscal Q4 2026 (ending November 1, 2026)",
+        "evidence_span": "Fourth quarter fiscal year 2026 revenue guidance of approximately $34.8 billion, an increase of 93 percent from the prior year period"
+      },
+      "source_published_at": "September 2, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "guidance_revision",
+      "catalyst_description": "Broadcom's CEO guided fiscal Q4 2026 AI semiconductor revenue to accelerate to approximately $21.7 billion, up 236% year-over-year.",
+      "entities": [
+        {
+          "entity_name": "Broadcom Inc.",
+          "role": "issuer",
+          "evidence_span": "Broadcom Inc. (Nasdaq&amp;#58; AVGO)"
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "ai_semiconductor_revenue_guidance",
+        "observed_value": 21.7,
+        "reference_value": null,
+        "observed_value_low": null,
+        "observed_value_high": null,
+        "reference_value_low": null,
+        "reference_value_high": null,
+        "reference_source": null,
+        "reference_timestamp": null,
+        "unit": "USD billions",
+        "period": "fiscal Q4 2026",
+        "evidence_span": "In Q4 the momentum continues, and we expect AI semiconductor revenue to accelerate to $21.7 billion, up 236% year-over-year."
+      },
+      "source_published_at": "September 2, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "buyback_or_capital_return",
+      "catalyst_description": "Broadcom's Board of Directors approved a new quarterly cash dividend of $0.65 per share, payable September 30, 2026 to stockholders of record as of September 21, 2026.",
+      "entities": [
+        {
+          "entity_name": "Broadcom Inc.",
+          "role": "issuer",
+          "evidence_span": "Broadcom Inc. (Nasdaq&amp;#58; AVGO)"
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "dividend_per_share_declared",
+        "observed_value": 0.65,
+        "reference_value": 0.65,
+        "observed_value_low": null,
+        "observed_value_high": null,
+        "reference_value_low": null,
+        "reference_value_high": null,
+        "reference_source": "Broadcom's previously paid quarterly dividend of $0.65 per share, paid June 30, 2026, as stated elsewhere in this same document",
+        "reference_timestamp": "June 30, 2026",
+        "unit": "USD per share",
+        "period": "dividend payable September 30, 2026 (record date September 21, 2026)",
+        "evidence_span": "The Board of Directors of Broadcom has approved a quarterly cash dividend of $0.65 per share. The dividend is payable on September 30, 2026 to stockholders of record at the close of business (5&amp;#58;00 p.m. Eastern Time) on September 21, 2026."
+      },
+      "source_published_at": "September 2, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "buyback_or_capital_return",
+      "catalyst_description": "The document states that Broadcom already paid a quarterly cash dividend of $0.65 per share, totaling $3.1 billion, on June 30, 2026 (the prior quarter's dividend payment).",
+      "entities": [
+        {
+          "entity_name": "Broadcom Inc.",
+          "role": "issuer",
+          "evidence_span": "Broadcom Inc. (Nasdaq&amp;#58; AVGO)"
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "dividend_per_share_paid",
+        "observed_value": 0.65,
+        "reference_value": null,
+        "observed_value_low": null,
+        "observed_value_high": null,
+        "reference_value_low": null,
+        "reference_value_high": null,
+        "reference_source": null,
+        "reference_timestamp": null,
+        "unit": "USD per share",
+        "period": "dividend paid June 30, 2026",
+        "evidence_span": "On June 30, 2026, the Company paid a cash dividend of $0.65 per share, totaling $3.1 billion."
+      },
+      "source_published_at": "September 2, 2026",
+      "explicit_correction": false
+    }
+  ],
+  "unsupported_claims_noted": [
+    "GAAP diluted EPS of $2.68 (+215% YoY per the financial highlights table), GAAP operating income of $16.0 billion (+171% YoY), non-GAAP operating income of $20.1 billion (+92% YoY), and free cash flow of $13.7 billion (46% of revenue) are all reported in the release as part of the same Q3 FY2026 results disclosure as the revenue figure; they were not extracted as separate event objects because they are different accounting presentations of the same single quarterly-results announcement rather than distinct economic propositions, not because a supporting span could not be found.",
+    "The document discloses cumulative common-stock repurchases under the repurchase program of $(8,450) million for the three fiscal quarters ended August 2, 2026, and a dash (zero) for repurchases in the current fiscal quarter, but only inside a structured cash-flow-statement table with no accompanying prose claim. This was not extracted as a standalone buyback_or_capital_return event because there is no clean, unambiguous evidence span tying a plain-language claim to that number without crossing extensive table markup, and the current-quarter figure shows no actual repurchase activity.",
+    "The statement that 'the Company's cash and cash equivalents at the end of the fiscal quarter were $24.0 billion, compared to $19.6 billion at the end of the prior fiscal quarter' was not extracted as an event because a period-end cash balance does not correspond to any of the listed event categories.",
+    "The document does not restate what revenue, EPS, or operating-income guidance the company itself previously issued for the third quarter of fiscal 2026 (only year-over-year percentage changes against the prior-year period are given, with no explicit prior-year dollar figure stated in prose), so no earnings_surprise event comparing Q3 actual results to the company's own prior guidance could be constructed with a valid reference_value/reference_source.",
+    "Mentions of 'VMware' and 'acquiring VMware' occur only inside generic forward-looking-statements risk-factor boilerplate (e.g., 'potential tax liabilities as a result of acquiring VMware' and 'integrating acquired businesses with our existing businesses') and do not state any new or specific acquisition/divestiture fact in this document, so no acquisition_or_divestiture event was extracted.",
+    "No customer, supplier, or counterparty company is named anywhere in this document (a full scan for capitalized company-name patterns found only 'Broadcom Inc.'), so no supply_agreement, customer_agreement, order_win, order_loss, or entity_relationship could be extracted."
+  ]
+}

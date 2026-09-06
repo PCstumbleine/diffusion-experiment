@@ -1,0 +1,38 @@
+{
+  "document_id": "131cdf61-2af2-46b7-bb6a-50856f1e4523",
+  "extraction_prompt_version": "1.2.0",
+  "events": [
+    {
+      "event_category": "acquisition_or_divestiture",
+      "catalyst_description": "AbbVie announced the completion of its acquisition of Apogee Therapeutics, Inc.",
+      "entities": [
+        {
+          "entity_name": "AbbVie Inc.",
+          "role": "issuer",
+          "evidence_span": "AbbVie Inc. (the &#8220;Company&#8221;)\nissued a press release announcing the completion of its acquisition of Apogee Therapeutics,&#160;Inc."
+        },
+        {
+          "entity_name": "Apogee Therapeutics, Inc.",
+          "role": "target",
+          "evidence_span": "AbbVie Inc. (the &#8220;Company&#8221;)\nissued a press release announcing the completion of its acquisition of Apogee Therapeutics,&#160;Inc."
+        }
+      ],
+      "relationships": [
+        {
+          "entity_a": "AbbVie Inc.",
+          "entity_b": "Apogee Therapeutics, Inc.",
+          "relationship_type": "acquirer_target",
+          "relationship_evidence": "explicit_named",
+          "source_authority": "company",
+          "document_explicitly_states_transmission_history": false,
+          "raw_llm_relationship_score": 0.99,
+          "evidence_span": "AbbVie Inc. (the &#8220;Company&#8221;)\nissued a press release announcing the completion of its acquisition of Apogee Therapeutics,&#160;Inc."
+        }
+      ],
+      "surprise": null,
+      "source_published_at": "September 3, 2026",
+      "explicit_correction": false
+    }
+  ],
+  "unsupported_claims_noted": []
+}

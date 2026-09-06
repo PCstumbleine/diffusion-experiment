@@ -196,6 +196,7 @@ import argparse
 import hashlib
 import html
 import logging
+import os
 import re
 import sys
 import time
@@ -218,7 +219,13 @@ log = logging.getLogger("edgar_ingest_worker")
 
 # REQUIRED by SEC's fair-access policy: identify yourself, don't ship a
 # placeholder. Format SEC asks for: "Sample Company Name AdminContact@sample.com"
-USER_AGENT = "DiffusionExperiment-PersonalResearch REPLACE_WITH_YOUR_EMAIL@example.com"
+# The checked-in default stays a placeholder on purpose -- a real contact
+# email is read from EDGAR_USER_AGENT at runtime instead, so it never lands
+# in git history.
+USER_AGENT = os.environ.get(
+    "EDGAR_USER_AGENT",
+    "DiffusionExperiment-PersonalResearch REPLACE_WITH_YOUR_EMAIL@example.com",
+)
 
 # Self-imposed ceiling, well under SEC's published 10 req/sec limit.
 MAX_REQUESTS_PER_SECOND = 2.0

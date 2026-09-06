@@ -1,0 +1,199 @@
+{
+  "document_id": "6144062a-286b-4a5c-9e6c-379693a54da3",
+  "extraction_prompt_version": "1.2.0",
+  "events": [
+    {
+      "event_category": "earnings_surprise",
+      "catalyst_description": "Broadcom reported Q3 fiscal 2026 revenue of $29.6 billion, up 86% year-over-year.",
+      "entities": [
+        {
+          "entity_name": "Broadcom Inc.",
+          "role": "issuer",
+          "evidence_span": "Broadcom Inc. (Nasdaq&#58; AVGO), a global technology leader"
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "revenue_yoy_change",
+        "observed_value": 29.6,
+        "reference_value": null,
+        "reference_source": "Broadcom's own prior-year quarter (Q3 FY2025) results, as restated in this same release",
+        "reference_timestamp": null,
+        "unit": "USD_billions",
+        "period": "Q3 FY2026",
+        "evidence_span": "Revenue of $29.6 billion for the third quarter, up 86 percent from the prior year period"
+      },
+      "source_published_at": "September 2, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "earnings_surprise",
+      "catalyst_description": "Broadcom reported Q3 fiscal 2026 GAAP diluted EPS of $2.68 and Non-GAAP diluted EPS of $3.32.",
+      "entities": [
+        {
+          "entity_name": "Broadcom Inc.",
+          "role": "issuer",
+          "evidence_span": "Broadcom Inc. (Nasdaq&#58; AVGO), a global technology leader"
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "non_gaap_diluted_eps",
+        "observed_value": 3.32,
+        "reference_value": null,
+        "reference_source": "Broadcom's own prior-year quarter (Q3 FY2025) results, as restated in this same release",
+        "reference_timestamp": null,
+        "unit": "USD_per_share",
+        "period": "Q3 FY2026",
+        "evidence_span": "GAAP diluted EPS of $2.68 for the third quarter&#59; Non-GAAP diluted EPS of $3.32 for the third quarter"
+      },
+      "source_published_at": "September 2, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "earnings_surprise",
+      "catalyst_description": "Broadcom reported Q3 fiscal 2026 free cash flow of $13.7 billion, 46% of revenue.",
+      "entities": [
+        {
+          "entity_name": "Broadcom Inc.",
+          "role": "issuer",
+          "evidence_span": "Broadcom Inc. (Nasdaq&#58; AVGO), a global technology leader"
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "free_cash_flow",
+        "observed_value": 13.7,
+        "reference_value": null,
+        "reference_source": null,
+        "reference_timestamp": null,
+        "unit": "USD_billions",
+        "period": "Q3 FY2026",
+        "evidence_span": "Cash from operations of $14.2 billion for the third quarter, less capital expenditures of $0.5 billion, resulted in $13.7 billion of free cash flow"
+      },
+      "source_published_at": "September 2, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "buyback_or_capital_return",
+      "catalyst_description": "Broadcom announced a quarterly common stock dividend of $0.65 per share.",
+      "entities": [
+        {
+          "entity_name": "Broadcom Inc.",
+          "role": "issuer",
+          "evidence_span": "Broadcom Inc. (Nasdaq&#58; AVGO), a global technology leader"
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "quarterly_dividend_per_share",
+        "observed_value": 0.65,
+        "reference_value": null,
+        "reference_source": null,
+        "reference_timestamp": null,
+        "unit": "USD_per_share",
+        "period": "Q3 2026",
+        "evidence_span": "Quarterly common stock dividend of $0.65 per share"
+      },
+      "source_published_at": "September 2, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "guidance_revision",
+      "catalyst_description": "Broadcom guided Q4 fiscal 2026 revenue to approximately $34.8 billion, an increase of 93% year-over-year.",
+      "entities": [
+        {
+          "entity_name": "Broadcom Inc.",
+          "role": "issuer",
+          "evidence_span": "Broadcom Inc. (Nasdaq&#58; AVGO), a global technology leader"
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "revenue_guidance",
+        "observed_value": 34.8,
+        "reference_value": null,
+        "reference_source": "Broadcom's own prior-year quarter (Q4 FY2025) results, as the basis for this year-over-year guidance framing",
+        "reference_timestamp": null,
+        "unit": "USD_billions",
+        "period": "Q4 FY2026",
+        "evidence_span": "Fourth quarter fiscal year 2026 revenue guidance of approximately $34.8 billion, an increase of 93 percent from the prior year period"
+      },
+      "source_published_at": "September 2, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "guidance_revision",
+      "catalyst_description": "Broadcom's CFO guided Q4 fiscal 2026 non-GAAP operating margin to approximately 66%, flat year-over-year.",
+      "entities": [
+        {
+          "entity_name": "Broadcom Inc.",
+          "role": "issuer",
+          "evidence_span": "Broadcom Inc. (Nasdaq&#58; AVGO), a global technology leader"
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "non_gaap_operating_margin_guidance",
+        "observed_value": 66,
+        "reference_value": 66,
+        "reference_source": "Broadcom's own prior-year (Q4 FY2025) non-GAAP operating margin, as stated by the CFO in this same release",
+        "reference_timestamp": null,
+        "unit": "percent",
+        "period": "Q4 FY2026",
+        "evidence_span": "we expect to maintain our non-GAAP operating margin at 66%, flat from a year ago"
+      },
+      "source_published_at": "September 2, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "other_material_event",
+      "catalyst_description": "Broadcom's CEO said Q3 fiscal 2026 AI semiconductor revenue was $16.7 billion, up 221% year-over-year and 54% quarter-over-quarter.",
+      "entities": [
+        {
+          "entity_name": "Broadcom Inc.",
+          "role": "issuer",
+          "evidence_span": "Broadcom Inc. (Nasdaq&#58; AVGO), a global technology leader"
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "ai_semiconductor_revenue",
+        "observed_value": 16.7,
+        "reference_value": null,
+        "reference_source": "Broadcom's own prior-year and prior-quarter AI semiconductor revenue, as stated by the CEO in this same release",
+        "reference_timestamp": null,
+        "unit": "USD_billions",
+        "period": "Q3 FY2026",
+        "evidence_span": "Q3 AI semiconductor revenue of $16.7 billion grew 221% year-over-year, and 54% quarter-over-quarter"
+      },
+      "source_published_at": "September 2, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "guidance_revision",
+      "catalyst_description": "Broadcom's CEO guided Q4 fiscal 2026 AI semiconductor revenue to $21.7 billion, up 236% year-over-year.",
+      "entities": [
+        {
+          "entity_name": "Broadcom Inc.",
+          "role": "issuer",
+          "evidence_span": "Broadcom Inc. (Nasdaq&#58; AVGO), a global technology leader"
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "ai_semiconductor_revenue_guidance",
+        "observed_value": 21.7,
+        "reference_value": null,
+        "reference_source": "Broadcom's own prior-year quarter (Q4 FY2025) AI semiconductor revenue, as stated by the CEO in this same release",
+        "reference_timestamp": null,
+        "unit": "USD_billions",
+        "period": "Q4 FY2026",
+        "evidence_span": "we expect AI semiconductor revenue to accelerate to $21.7 billion, up 236% year-over-year"
+      },
+      "source_published_at": "September 2, 2026",
+      "explicit_correction": false
+    }
+  ],
+  "unsupported_claims_noted": []
+}

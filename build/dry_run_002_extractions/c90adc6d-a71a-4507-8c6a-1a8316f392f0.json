@@ -1,0 +1,47 @@
+{
+  "document_id": "c90adc6d-a71a-4507-8c6a-1a8316f392f0",
+  "extraction_prompt_version": "1.2.0",
+  "events": [
+    {
+      "event_category": "acquisition_or_divestiture",
+      "catalyst_description": "NVIDIA entered into a definitive agreement to acquire Hugging Face, Inc. for an approximately $11.9 billion purchase price, expected to close in the first half of 2027.",
+      "entities": [
+        {
+          "entity_name": "NVIDIA Corporation",
+          "role": "issuer",
+          "evidence_span": "On September 2, 2026, NVIDIA Corporation (&#8220;NVIDIA&#8221;) entered into a definitive agreement to acquire Hugging Face, Inc. (&#8220;Hugging Face&#8221;)."
+        },
+        {
+          "entity_name": "Hugging Face, Inc.",
+          "role": "target",
+          "evidence_span": "On September 2, 2026, NVIDIA Corporation (&#8220;NVIDIA&#8221;) entered into a definitive agreement to acquire Hugging Face, Inc. (&#8220;Hugging Face&#8221;)."
+        }
+      ],
+      "relationships": [
+        {
+          "entity_a": "NVIDIA Corporation",
+          "entity_b": "Hugging Face, Inc.",
+          "relationship_type": "acquirer_target",
+          "relationship_evidence": "explicit_named",
+          "source_authority": "company",
+          "document_explicitly_states_transmission_history": false,
+          "raw_llm_relationship_score": 0.99,
+          "evidence_span": "On September 2, 2026, NVIDIA Corporation (&#8220;NVIDIA&#8221;) entered into a definitive agreement to acquire Hugging Face, Inc. (&#8220;Hugging Face&#8221;)."
+        }
+      ],
+      "surprise": {
+        "surprise_type": "acquisition_purchase_price",
+        "observed_value": 11.9,
+        "reference_value": null,
+        "reference_source": null,
+        "reference_timestamp": null,
+        "unit": "USD_billions",
+        "period": null,
+        "evidence_span": "The transaction includes an approximately $11.9 billion purchase price payable to Hugging Face stockholders"
+      },
+      "source_published_at": "September 2, 2026",
+      "explicit_correction": false
+    }
+  ],
+  "unsupported_claims_noted": []
+}

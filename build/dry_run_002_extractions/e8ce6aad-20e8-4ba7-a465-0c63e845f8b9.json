@@ -1,0 +1,103 @@
+{
+  "document_id": "e8ce6aad-20e8-4ba7-a465-0c63e845f8b9",
+  "extraction_prompt_version": "1.2.0",
+  "events": [
+    {
+      "event_category": "acquisition_or_divestiture",
+      "catalyst_description": "AbbVie completed its acquisition of Apogee Therapeutics for $135.11 per share in cash, a total equity value of approximately $10.9 billion.",
+      "entities": [
+        {
+          "entity_name": "AbbVie",
+          "role": "issuer",
+          "evidence_span": "AbbVie (NYSE:\nABBV) today announced that it has completed its acquisition of Apogee Therapeutics,&nbsp;Inc. (NASDAQ: APGE)."
+        },
+        {
+          "entity_name": "Apogee Therapeutics, Inc.",
+          "role": "target",
+          "evidence_span": "AbbVie (NYSE:\nABBV) today announced that it has completed its acquisition of Apogee Therapeutics,&nbsp;Inc. (NASDAQ: APGE)."
+        }
+      ],
+      "relationships": [
+        {
+          "entity_a": "AbbVie",
+          "entity_b": "Apogee Therapeutics, Inc.",
+          "relationship_type": "acquirer_target",
+          "relationship_evidence": "explicit_named",
+          "source_authority": "company",
+          "document_explicitly_states_transmission_history": false,
+          "raw_llm_relationship_score": 0.99,
+          "evidence_span": "AbbVie (NYSE:\nABBV) today announced that it has completed its acquisition of Apogee Therapeutics,&nbsp;Inc. (NASDAQ: APGE)."
+        }
+      ],
+      "surprise": {
+        "surprise_type": "acquisition_deal_value",
+        "observed_value": 10.9,
+        "reference_value": null,
+        "reference_source": null,
+        "reference_timestamp": null,
+        "unit": "USD_billions",
+        "period": null,
+        "evidence_span": "Under the terms of the agreement, Apogee shareholders received $135.11 per share in cash,\nfor a total equity value of approximately $10.9 billion."
+      },
+      "source_published_at": "September 3, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "guidance_revision",
+      "catalyst_description": "AbbVie reaffirmed its previously issued full-year 2026 adjusted diluted EPS guidance range of $13.87-$14.07.",
+      "entities": [
+        {
+          "entity_name": "AbbVie",
+          "role": "issuer",
+          "evidence_span": "AbbVie is reaffirming its previously issued\n2026 full-year adjusted diluted EPS guidance range of $13.87 - $14.07."
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "eps_guidance",
+        "observed_value": null,
+        "reference_value": null,
+        "observed_value_low": 13.87,
+        "observed_value_high": 14.07,
+        "reference_value_low": 13.87,
+        "reference_value_high": 14.07,
+        "reference_source": "AbbVie's own previously issued full-year 2026 adjusted diluted EPS guidance",
+        "reference_timestamp": null,
+        "unit": "USD_per_share",
+        "period": "FY2026",
+        "evidence_span": "AbbVie is reaffirming its previously issued\n2026 full-year adjusted diluted EPS guidance range of $13.87 - $14.07."
+      },
+      "source_published_at": "September 3, 2026",
+      "explicit_correction": false
+    },
+    {
+      "event_category": "guidance_revision",
+      "catalyst_description": "AbbVie reaffirmed its previously issued third-quarter 2026 adjusted diluted EPS guidance range of $3.84-$3.88.",
+      "entities": [
+        {
+          "entity_name": "AbbVie",
+          "role": "issuer",
+          "evidence_span": "AbbVie is reaffirming its previously issued\n2026 third-quarter adjusted diluted EPS guidance range of $3.84 - $3.88."
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "eps_guidance",
+        "observed_value": null,
+        "reference_value": null,
+        "observed_value_low": 3.84,
+        "observed_value_high": 3.88,
+        "reference_value_low": 3.84,
+        "reference_value_high": 3.88,
+        "reference_source": "AbbVie's own previously issued third-quarter 2026 adjusted diluted EPS guidance",
+        "reference_timestamp": null,
+        "unit": "USD_per_share",
+        "period": "Q3 2026",
+        "evidence_span": "AbbVie is reaffirming its previously issued\n2026 third-quarter adjusted diluted EPS guidance range of $3.84 - $3.88."
+      },
+      "source_published_at": "September 3, 2026",
+      "explicit_correction": false
+    }
+  ],
+  "unsupported_claims_noted": []
+}

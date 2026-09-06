@@ -1,0 +1,22 @@
+{
+  "document_id": "065d1eab-45bd-4e41-bab8-196ce98367bd",
+  "extraction_prompt_version": "1.2.0",
+  "events": [
+    {
+      "event_category": "other_material_event",
+      "catalyst_description": "Albemarle announced its CEO succession plan: Ragnar Udd appointed President and CEO effective February 1, 2027, with Kent Masters transitioning to Executive Chairman.",
+      "entities": [
+        {
+          "entity_name": "Albemarle Corporation",
+          "role": "issuer",
+          "evidence_span": "Albemarle\n          Corporation (NYSE: ALB), a global leader in providing essential elements for mobility, energy, connectivity and health, today announced that <font style=\"font-family: 'Times New Roman'; color: rgb(0, 0, 0);\">Ragnar </font>&#8220;Rag&#8221; Udd\n          has been appointed President and Chief Executive Officer, effective February 1, 2027. Udd will also join the Albemarle Board of Directors. Kent Masters, Chairman and CEO, will transition to the role of Executive Chairman of the Board upon Udd"
+        }
+      ],
+      "relationships": [],
+      "surprise": null,
+      "source_published_at": "September 3, 2026",
+      "explicit_correction": false
+    }
+  ],
+  "unsupported_claims_noted": []
+}

@@ -1,0 +1,33 @@
+{
+  "document_id": "8e006bea-d6bd-4b26-b599-24b0ac2c45fd",
+  "extraction_prompt_version": "1.2.0",
+  "events": [
+    {
+      "event_category": "capacity_change",
+      "catalyst_description": "BorgWarner reiterated its prior guidance that turbine generator production will begin in Hendersonville, North Carolina in 2027, with an initial 2 GW of installed capacity, and that turbine generator sales are expected to exceed $300 million in the first year of production.",
+      "entities": [
+        {
+          "entity_name": "BorgWarner Inc.",
+          "role": "issuer",
+          "evidence_span": "In response to questions it has received, BorgWarner Inc.\n(the &#8220;Company&#8221;) reiterates its prior statements that the Company continues to expect turbine generator production to begin\nin Hendersonville, North Carolina in 2027, with an initial 2 GW of installed capacity."
+        }
+      ],
+      "relationships": [],
+      "surprise": {
+        "surprise_type": "planned_installed_capacity",
+        "observed_value": 2,
+        "reference_value": null,
+        "reference_source": null,
+        "reference_timestamp": null,
+        "unit": "GW",
+        "period": null,
+        "evidence_span": "In response to questions it has received, BorgWarner Inc.\n(the &#8220;Company&#8221;) reiterates its prior statements that the Company continues to expect turbine generator production to begin\nin Hendersonville, North Carolina in 2027, with an initial 2 GW of installed capacity."
+      },
+      "source_published_at": "September 4, 2026",
+      "explicit_correction": false
+    }
+  ],
+  "unsupported_claims_noted": [
+    "turbine generator sales expected to exceed $300 million in the first year of production -- a second quantified fact in the same passage, not separately extracted as its own event since it's the same capacity plan being reiterated"
+  ]
+}

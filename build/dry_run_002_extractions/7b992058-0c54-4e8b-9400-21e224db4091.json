@@ -1,0 +1,22 @@
+{
+  "document_id": "7b992058-0c54-4e8b-9400-21e224db4091",
+  "extraction_prompt_version": "1.2.0",
+  "events": [
+    {
+      "event_category": "other_material_event",
+      "catalyst_description": "Albemarle's Board approved a leadership succession plan appointing Ragnar Udd to succeed J. Kent Masters, Jr. as President and CEO effective February 1, 2027, with Masters transitioning to Executive Chair.",
+      "entities": [
+        {
+          "entity_name": "Albemarle Corporation",
+          "role": "issuer",
+          "evidence_span": "On September 2, 2026, the Board of Directors of the Company (the &#8220;Board&#8221;) of Albemarle Corporation (the &#8220;Company&#8221;) approved a leadership succession\n        plan for the Company by appointing Ragnar Udd to succeed J. Kent Masters, Jr. as the Company&#8217;s President and Chief Executive Officer, effective as of February 1, 2027 or a mutually agreed earlier date (the &#8220;CEO Employment Commencement Date&#8221;).&#160;\n        Effective as of the CEO Employment Commencement Date, Mr. Masters will transition to the role of Executive Chair of the Board."
+        }
+      ],
+      "relationships": [],
+      "surprise": null,
+      "source_published_at": "September 2, 2026",
+      "explicit_correction": false
+    }
+  ],
+  "unsupported_claims_noted": []
+}

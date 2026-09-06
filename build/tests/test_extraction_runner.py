@@ -22,7 +22,8 @@ from extraction_runner import (
     extract_document, claim_extraction_run, process_catalyst, run_extraction_pass,
     validate_extraction_output, classify_relationship_eligibility,
     generate_candidates_for_event_version, ExtractionValidationError,
-    _verify_evidence_span, _repair_escaped_punctuation, _normalize_unresolved_actor_name,
+    _verify_evidence_span, _repair_escaped_punctuation, _repair_html_numeric_entity_double_escape,
+    _normalize_unresolved_actor_name,
 )
 from llm_client import PROMPT_VERSION  # kept in sync with extraction_prompt_v1.md's schema automatically
 
@@ -1002,6 +1003,134 @@ def test_entity_level_span_repair_feeds_event_document_links_with_repaired_strin
         start, end = cur.fetchone()
     assert start == expected_start
     assert end == expected_start + len(repaired_span)
+
+
+# ---------------------------------------------------------------------------
+# HTML numeric-entity double-escape repair (Dry Run 002 finding,
+# build/DRY_RUN_REPORT_002.md §7): an independent second read of a real
+# Broadcom filing reused one issuer evidence_span, "Broadcom Inc.
+# (Nasdaq&amp;#58; AVGO)", across all 6 of its events -- the real document
+# literally contains "Nasdaq&#58; AVGO" (single-escaped), so every one of
+# those 6 events was silently dropped. This repair mode fixes ONLY a
+# double-escaped numeric HTML character reference ('&amp;#58;' /
+# '&amp;#x3A;' -> '&#58;' / '&#x3A;'), independently of the pre-existing
+# escaped-punctuation repair -- never chained with it.
+# ---------------------------------------------------------------------------
+
+def test_verify_evidence_span_repairs_double_escaped_decimal_html_entity():
+    """Reproduces the actual Dry Run 002 finding verbatim."""
+    raw_content = "Broadcom Inc. (Nasdaq&#58; AVGO), a global technology leader."
+    given_span = "Broadcom Inc. (Nasdaq&amp;#58; AVGO)"
+    ok, verified, mode = _verify_evidence_span(given_span, raw_content)
+    assert ok is True
+    assert verified == "Broadcom Inc. (Nasdaq&#58; AVGO)"
+    assert mode == "html_numeric_entity_double_escape_repair"
+
+
+def test_verify_evidence_span_repairs_double_escaped_decimal_entity_other_than_58():
+    """Confirms the repair isn't hardcoded to the colon entity (#58) --
+    any decimal numeric character reference qualifies."""
+    raw_content = "Net revenue&#160;increased this quarter."
+    given_span = "Net revenue&amp;#160;increased this quarter."
+    ok, verified, mode = _verify_evidence_span(given_span, raw_content)
+    assert ok is True
+    assert verified == "Net revenue&#160;increased this quarter."
+    assert mode == "html_numeric_entity_double_escape_repair"
+
+
+def test_verify_evidence_span_repairs_double_escaped_hex_html_entity():
+    raw_content = "Ticker&#x3A;AVGO is on file."
+    given_span = "Ticker&amp;#x3A;AVGO is on file."
+    ok, verified, mode = _verify_evidence_span(given_span, raw_content)
+    assert ok is True
+    assert verified == "Ticker&#x3A;AVGO is on file."
+    assert mode == "html_numeric_entity_double_escape_repair"
+
+
+def test_verify_evidence_span_prefers_exact_match_over_repair_when_raw_content_literally_contains_the_escaped_form():
+    """A legitimate double-escaped literal actually present in the source
+    (e.g. from a document that itself quotes escaped markup) must match
+    exactly and never be routed through the repair path."""
+    raw_content = "Legacy markup shows &amp;#58; literally in the text."
+    given_span = "shows &amp;#58; literally"
+    ok, verified, mode = _verify_evidence_span(given_span, raw_content)
+    assert ok is True
+    assert verified == given_span
+    assert mode == "exact"
+
+
+def test_verify_evidence_span_rejects_invalid_numeric_entity_pseudo_pattern():
+    """'&amp;#foo;' is neither decimal digits nor hex+';' -- not a numeric
+    character reference at all, so no repair is attempted."""
+    raw_content = "Something else entirely, unrelated to the span below."
+    given_span = "Nasdaq&amp;#foo; AVGO"
+    assert _repair_html_numeric_entity_double_escape(given_span) is None
+    ok, verified, mode = _verify_evidence_span(given_span, raw_content)
+    assert ok is False
+    assert verified is None and mode is None
+
+
+def test_verify_evidence_span_rejects_double_escape_repair_when_result_is_not_unique():
+    raw_content = "AVGO&#58; appears once here and AVGO&#58; appears again here."
+    given_span = "AVGO&amp;#58;"
+    ok, verified, mode = _verify_evidence_span(given_span, raw_content)
+    assert ok is False
+
+
+def test_verify_evidence_span_rejects_double_escape_repair_when_result_still_absent():
+    raw_content = "Nothing resembling the ticker line is in this document at all."
+    given_span = "Nasdaq&amp;#58; AVGO"
+    ok, verified, mode = _verify_evidence_span(given_span, raw_content)
+    assert ok is False
+
+
+def test_verify_evidence_span_does_not_chain_escaped_punctuation_and_html_entity_repairs():
+    """A span needing BOTH repairs applied in sequence to become an exact
+    match must be rejected, not repaired via two combined
+    transformations -- proves the two modes are independent."""
+    raw_content = "<td>Nasdaq&#58; AVGO</td> more text."
+    given_span = r"\<td>Nasdaq&amp;#58; AVGO\<\/td>"
+    # Escaped-punctuation repair alone yields "<td>Nasdaq&amp;#58; AVGO</td>"
+    # (still double-escaped) -- absent from raw_content.
+    punct_only = _repair_escaped_punctuation(given_span)
+    assert punct_only is not None
+    assert punct_only not in raw_content
+    # HTML-entity repair alone yields the backslashes still literally
+    # present -- also absent from raw_content.
+    entity_only = _repair_html_numeric_entity_double_escape(given_span)
+    assert entity_only is not None
+    assert entity_only not in raw_content
+    ok, verified, mode = _verify_evidence_span(given_span, raw_content)
+    assert ok is False
+    assert verified is None and mode is None
+
+
+def test_event_survives_validation_after_html_numeric_entity_double_escape_repair():
+    """End to end, reproducing the actual Broadcom failure shape: the
+    event must survive validate_extraction_output (not be dropped), and
+    span_repairs must record the repair."""
+    raw_content = "Broadcom Inc. (Nasdaq&#58; AVGO), a global technology leader."
+    given_span = "Broadcom Inc. (Nasdaq&amp;#58; AVGO)"
+    output = {
+        "document_id": "d1", "extraction_prompt_version": PROMPT_VERSION,
+        "events": [{
+            "event_category": "earnings_surprise", "catalyst_description": "x",
+            "entities": [{"entity_name": "Broadcom Inc.", "role": "issuer", "evidence_span": given_span}],
+            "relationships": [], "surprise": None, "explicit_correction": False,
+        }],
+    }
+    cleaned, drop_log = validate_extraction_output(output, raw_content, PROMPT_VERSION, "d1")
+    assert len(cleaned["events"]) == 1  # NOT dropped
+    assert cleaned["events"][0]["entities"][0]["evidence_span"] == "Broadcom Inc. (Nasdaq&#58; AVGO)"
+    assert not any("Broadcom" in msg for msg in drop_log)
+
+    span_repairs = cleaned["span_repairs"]
+    assert len(span_repairs) == 1
+    assert span_repairs[0] == {
+        "event_index": 0, "claim_type": "entity", "claim_index": 0,
+        "original_span": given_span, "verified_span": "Broadcom Inc. (Nasdaq&#58; AVGO)",
+        "span_match_mode": "html_numeric_entity_double_escape_repair",
+    }
 
 
 # ---------------------------------------------------------------------------

@@ -320,18 +320,50 @@ def _repair_escaped_punctuation(span: str) -> str | None:
     return "".join(out)
 
 
+_HTML_NUMERIC_ENTITY_DOUBLE_ESCAPE_RE = re.compile(r"&amp;#(?=(?:\d+|[xX][0-9A-Fa-f]+);)")
+
+
+def _repair_html_numeric_entity_double_escape(span: str) -> str | None:
+    """One narrow repair (Dry Run 002 finding): a numeric HTML character
+    reference already present in the raw source (e.g. '&#58;' or
+    '&#x3A;') sometimes comes back double-escaped as '&amp;#58;' /
+    '&amp;#x3A;'. Fixes ONLY that pattern -- '&amp;#' immediately
+    followed by decimal digits or hex digits and a ';' -- by collapsing
+    it to '&#'. Returns None if the span contains no such pattern at all
+    (nothing to repair), matching _repair_escaped_punctuation's contract.
+    Deliberately NOT a general HTML-unescape: does not touch '&amp;',
+    '&lt;', '&gt;', '&quot;', '&nbsp;', or any named entity -- only this
+    one empirically-observed numeric-entity double-escape shape. Does not
+    require every occurrence in the span to match (unlike the escaped-
+    punctuation repair's all-or-nothing rule) since this substitution is
+    unconditionally safe wherever it applies -- no ambiguous case exists
+    for this specific pattern the way a bare backslash is ambiguous."""
+    repaired, n = _HTML_NUMERIC_ENTITY_DOUBLE_ESCAPE_RE.subn("&#", span)
+    return repaired if n > 0 else None
+
+
 def _verify_evidence_span(span, raw_content: str) -> tuple[bool, str | None, str | None]:
     """Returns (ok, verified_span, span_match_mode). span_match_mode is
-    "exact" or "escaped_punctuation_repair" when ok, else None.
+    "exact", "escaped_punctuation_repair", or
+    "html_numeric_entity_double_escape_repair" when ok, else None.
     verified_span is the string the caller should actually USE downstream
     (the original, as given, is preserved separately by the caller for
     the audit record -- see validate_extraction_output's span_repairs).
 
+    The two repair modes are tried independently against the ORIGINAL
+    span -- never chained, so a span that would only become an exact
+    match after applying BOTH repairs in sequence is rejected, not
+    "rescued" by combining them.
+
     Explicitly NOT done here: generic backslash stripping, Unicode/
-    whitespace normalization, or fuzzy/substring-adjacent matching of any
-    kind. Every accepted span, after at most the one narrow repair above,
-    is an exact, literal, occurs-EXACTLY-ONCE substring of the immutable
-    source document -- a repaired candidate that's still absent, or that
+    whitespace normalization, fuzzy/substring-adjacent matching of any
+    kind, general html.unescape()/HTML-entity normalization, or handling
+    of named entities ('&amp;', '&lt;', '&gt;', '&quot;', '&nbsp;', etc.)
+    -- numeric character references only, because that's the only
+    pattern with a real observed failure behind it. Every accepted span,
+    after at most one of the two narrow repairs above, is an exact,
+    literal, occurs-EXACTLY-ONCE substring of the immutable source
+    document -- a repaired candidate that's still absent, or that
     matches more than once (ambiguous), is rejected, not guessed at."""
     if not isinstance(span, str) or span == "":
         return False, None, None
@@ -341,6 +373,11 @@ def _verify_evidence_span(span, raw_content: str) -> tuple[bool, str | None, str
     repaired = _repair_escaped_punctuation(span)
     if repaired is not None and raw_content.count(repaired) == 1:
         return True, repaired, "escaped_punctuation_repair"
+
+    repaired = _repair_html_numeric_entity_double_escape(span)
+    if repaired is not None and raw_content.count(repaired) == 1:
+        return True, repaired, "html_numeric_entity_double_escape_repair"
+
     return False, None, None
 
 
@@ -418,7 +455,7 @@ def validate_extraction_output(output: dict, raw_content: str, requested_prompt_
                     "substring of raw_content, dropped"
                 )
                 continue
-            if mode == "escaped_punctuation_repair":
+            if mode != "exact":
                 span_repairs.append({
                     "event_index": i, "claim_type": "entity", "claim_index": j,
                     "original_span": original_span, "verified_span": verified_span,
@@ -459,7 +496,7 @@ def validate_extraction_output(output: dict, raw_content: str, requested_prompt_
                 )
                 continue
             rel = dict(rel, relationship_type=mapped_type)
-            if mode == "escaped_punctuation_repair":
+            if mode != "exact":
                 span_repairs.append({
                     "event_index": i, "claim_type": "relationship", "claim_index": j,
                     "original_span": original_span, "verified_span": verified_span,
@@ -495,7 +532,7 @@ def validate_extraction_output(output: dict, raw_content: str, requested_prompt_
                         "reference_source, dropped (kept event, surprise=null)"
                     )
                     surprise = None
-                elif mode == "escaped_punctuation_repair":
+                elif mode != "exact":
                     span_repairs.append({
                         "event_index": i, "claim_type": "surprise", "claim_index": None,
                         "original_span": original_span, "verified_span": verified_span,

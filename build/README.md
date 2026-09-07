@@ -645,17 +645,37 @@ pandas_market_calendars==5.4.0`) — see `trading_calendar.py`'s own docstring
 for why the pin is exact, not a floor.
 
 ```
-createdb diffusion_experiment
-psql -d diffusion_experiment -f schema.sql
-psql -d diffusion_experiment -f migrations/002_extraction_runner.sql
-psql -d diffusion_experiment -f migrations/003_extraction_runner_fixes.sql
-psql -d diffusion_experiment -f migrations/004_range_valued_guidance.sql
-psql -d diffusion_experiment -f migrations/005_relationship_deferral_observability.sql
-psql -d diffusion_experiment -f migrations/006_confirmatory_outcome_contract.sql
-psql -d diffusion_experiment -f migrations/007_experiment_catalysts.sql
-python3 seed_entities.py
+# A brand-new database, tracked from birth (schema.sql + all migrations,
+# including "008"'s database_metadata purpose row, applied and checksummed
+# in one pass -- see specs/historical-replay-phase0-implementation-spec-final.md):
+python3 bootstrap_database.py --database diffusion_experiment --purpose forward
+python3 seed_entities.py --purpose forward
 cd tests && python3 -m pytest -v
 ```
+
+Setting this up against the pre-existing real `diffusion_experiment` database
+that predates this tooling (already has `schema.sql` + migrations `002`-`007`
+applied by hand, no `schema_migrations` table) is a one-time, human-performed
+adoption, not the fresh-bootstrap path above -- see
+`specs/historical-replay-phase0-implementation-spec-final.md` Section 6's
+frozen rollout sequence:
+
+```
+# 1. back up / checkpoint the existing database first.
+python3 bootstrap_database.py --adopt-existing --database diffusion_experiment --purpose forward
+python3 bootstrap_database.py --verify --database diffusion_experiment --purpose forward
+```
+
+`--verify` is strictly read-only (never creates, migrates, adopts, or
+repairs anything) and is the way to check an existing database's migration/
+purpose state at any time, not just right after adoption.
+
+Every `bootstrap_database.py` invocation connects using `db_config.get_db_dsn()`
+as its template (`DIFFUSION_DB_DSN` env var if set, otherwise the
+standardized `dbname=diffusion_experiment user=postgres` default) with only
+`dbname` overridden by `--database` -- point `DIFFUSION_DB_DSN` at a
+different server/credentials once, rather than passing a separate DSN to
+every command.
 
 Before running `edgar_ingest_worker.py` for real: open it and replace the
 placeholder email in `USER_AGENT` with your real contact info — SEC requires
@@ -703,17 +723,44 @@ minimum number of distinct catalysts (a reasonable starting target is 50+)
 before trusting this test's result, since observation count alone doesn't
 guarantee that.
 
+## Selection Diagnostics v1
+
+`selection_diagnostics.py` (specs/selection-diagnostics-v1-implementation-spec-final.md,
+nine review rounds) is a new, freely re-runnable, purely descriptive
+report comparing Arm A's and Arm G's selection concentration (HHI,
+effective names) and per-entity selection rates over a scoring epoch. It
+does not gate anything and is not part of `run_confirmatory_promotion_test`.
+`confirmatory_analysis.py` and `confirmatory_builder.py` are unmodified by
+this work — everything new lives in this one module, importing existing
+primitives read-only. Tests in `tests/test_selection_diagnostics.py`.
+
+## Historical replay — in progress
+
+A deliberate, ChatGPT-reviewed effort to test the pipeline against real,
+already-public historical filings — using the same free "Claude acts as
+the extractor by hand" approach Dry Run 001 used, not a paid LLM call —
+before any real money or live data is involved. Full design and phased
+plan (Phase 0 database-safety infrastructure through Phase 4 historical
+market data/estimator) in `../docs/historical-replay-roadmap.md`. Phase 0's
+spec is now FINAL after seven rounds of review
+(`../specs/historical-replay-phase0-implementation-spec-final.md`) and
+ready to be implemented. Nothing described there exists in this codebase
+yet — this note exists so this section doesn't go stale the way it did
+for Selection Diagnostics above.
+
 ## What's not built yet
 
 The extraction runner (above) now sends a document's text through the
 prompt, validates the response, and writes `extracted_events` through
 `candidate_signals` — but it has never been pointed at a real, paid LLM
-call (no API budget exists yet — see the infrastructure fork). Two
-narrower gaps flagged during that build, not silently dropped:
+call (no API budget exists yet — see the infrastructure fork; historical
+replay, above, is the deliberate alternative path that doesn't require
+one). Two narrower gaps flagged during that build, not silently dropped:
 `event_versions.version_number` doesn't yet follow a real correction
-chain (see `extraction_runner.py`'s module docstring), and
-`event_versions.first_executable_at` is left `NULL` — implementing the
-spec's regular-session trading-time rule wasn't asked for as part of this
-bridge. The underreaction estimator's math (Section 4) isn't implemented
-as code yet — that comes after there's real data flowing through the
-pipeline to test it against.
+chain (see `extraction_runner.py`'s module docstring, unrelated to
+historical replay), and `event_versions.first_executable_at` is left
+`NULL` — implementing the spec's regular-session trading-time rule is
+historical replay's Phase 3, not part of this bridge. The underreaction
+estimator's math (Section 4) isn't implemented as code yet — historical
+replay's Phase 4, after there's real data flowing through the pipeline to
+test it against.

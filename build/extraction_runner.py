@@ -129,13 +129,15 @@ import jsonschema
 import psycopg2
 import psycopg2.extras
 
+import db_config
 import entity_resolution
 from llm_client import PROMPT_VERSION, load_prompt_texts
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("extraction_runner")
 
-DB_DSN = "dbname=diffusion_experiment user=postgres"
+DB_DSN = db_config.get_db_dsn()  # Historical Replay Phase 0 (Section 1) --
+    # standardized shared default, override via DIFFUSION_DB_DSN.
 
 _, _, EXTRACTION_JSON_SCHEMA = load_prompt_texts()
 
@@ -1381,6 +1383,8 @@ def main():
 
     conn = psycopg2.connect(args.dsn)
     try:
+        db_config.assert_database_purpose(conn, "forward")  # Historical Replay Phase 0,
+        # Section 3 -- once, immediately after connecting, before any read/write.
         if args.extractions_dir:
             from llm_client import FileBackedExtractionClient
             llm_client = FileBackedExtractionClient(args.extractions_dir)

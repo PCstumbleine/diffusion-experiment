@@ -47,13 +47,15 @@ from pathlib import Path
 
 import psycopg2
 
+import db_config
 import entity_resolution
 from entity_resolution import normalize_entity_name, strip_sec_filing_index_noise
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("seed_entities")
 
-DB_DSN = "dbname=diffusion_experiment user=postgres"
+DB_DSN = db_config.get_db_dsn()  # Historical Replay Phase 0 (Section 1) --
+    # standardized shared default, override via DIFFUSION_DB_DSN.
 CSV_PATH = Path(__file__).parent / "seed_data" / "watchlist_ciks.csv"
 
 # Small, explicitly source-justified per-company aliases -- NOT a general
@@ -237,10 +239,16 @@ def seed_all(conn, csv_path: Path = CSV_PATH) -> list[tuple[str, str]]:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dsn", default=DB_DSN)
+    parser.add_argument("--purpose", required=True, choices=["forward", "historical_replay"],
+                         help="Which database this is (Historical Replay Phase 0, Section 3) -- "
+                              "no silent default, since this utility is environment-neutral and "
+                              "legitimately runs against either a forward or a historical_replay "
+                              "database.")
     args = parser.parse_args()
 
     conn = psycopg2.connect(args.dsn)
     try:
+        db_config.assert_database_purpose(conn, args.purpose)
         seeded = seed_all(conn)
         conn.commit()
         log.info("Seeded/confirmed %d entities on the watchlist.", len(seeded))

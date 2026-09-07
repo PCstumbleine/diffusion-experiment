@@ -207,6 +207,8 @@ import psycopg2
 import psycopg2.extras
 import requests
 
+import db_config
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s",
@@ -260,7 +262,11 @@ TYPE_FIELD_RE = re.compile(r"<TYPE>\s*([^\r\n<]+)", re.IGNORECASE)
 SEQUENCE_FIELD_RE = re.compile(r"<SEQUENCE>\s*(\d+)", re.IGNORECASE)
 FILENAME_FIELD_RE = re.compile(r"<FILENAME>\s*([^\r\n<]+)", re.IGNORECASE)
 
-DB_DSN = "dbname=diffusion_experiment"
+DB_DSN = db_config.get_db_dsn()  # standardized default changed (Historical Replay
+    # Phase 0, specs/historical-replay-phase0-implementation-spec-final.md
+    # Section 1) -- this was previously the bare "dbname=diffusion_experiment"
+    # literal, untested; now matches extraction_runner.py/seed_entities.py/the
+    # whole test suite unless DIFFUSION_DB_DSN overrides it.
 
 
 def load_watchlist(conn) -> list[tuple[str, str]]:
@@ -879,6 +885,8 @@ def main():
     client = EdgarClient(USER_AGENT)
     conn = psycopg2.connect(args.dsn)
     try:
+        db_config.assert_database_purpose(conn, "forward")  # Historical Replay Phase 0,
+        # Section 3 -- once, immediately after connecting, before any read/write.
         watchlist = filter_watchlist(load_watchlist(conn), args.only_ciks)
         if not watchlist:
             log.error("Watchlist is empty (after --only-ciks filtering, if given) — "

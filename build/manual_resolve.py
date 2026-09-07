@@ -29,6 +29,7 @@ from datetime import datetime, timezone
 import psycopg2
 import psycopg2.extras
 
+import db_config
 import entity_resolution
 from extraction_runner import (
     DB_DSN, RELATIONSHIP_TYPE_SYNONYMS, generate_candidates_for_event_version,
@@ -194,6 +195,11 @@ def create_entity_and_resolve(conn, mention_id: str, legal_name: str) -> str:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dsn", default=DB_DSN)
+    parser.add_argument("--purpose", required=True, choices=["forward", "historical_replay"],
+                         help="Which database this is (Historical Replay Phase 0, Section 3) -- "
+                              "no silent default, since this utility is environment-neutral and "
+                              "legitimately runs against either a forward or a historical_replay "
+                              "database.")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("list")
     resolve_parser = sub.add_parser("resolve")
@@ -205,6 +211,7 @@ def main():
 
     conn = psycopg2.connect(args.dsn)
     try:
+        db_config.assert_database_purpose(conn, args.purpose)
         if args.command == "list":
             list_pending(conn)
         elif args.command == "resolve":

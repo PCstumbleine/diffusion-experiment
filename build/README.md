@@ -639,7 +639,10 @@ You'll need Postgres installed and running, and Python with `psycopg2-binary`,
 `requests`, `numpy`, `scipy`, `jsonschema`, and (for tests) `pytest` installed
 (`pip install psycopg2-binary requests numpy scipy jsonschema pytest`; add
 `anthropic` too if you're going to run `extraction_runner.py` against a
-real LLM).
+real LLM). The confirmatory builder (`confirmatory_builder.py`) additionally
+needs `pandas_market_calendars==5.4.0` pinned exactly (`pip install
+pandas_market_calendars==5.4.0`) — see `trading_calendar.py`'s own docstring
+for why the pin is exact, not a floor.
 
 ```
 createdb diffusion_experiment
@@ -648,6 +651,8 @@ psql -d diffusion_experiment -f migrations/002_extraction_runner.sql
 psql -d diffusion_experiment -f migrations/003_extraction_runner_fixes.sql
 psql -d diffusion_experiment -f migrations/004_range_valued_guidance.sql
 psql -d diffusion_experiment -f migrations/005_relationship_deferral_observability.sql
+psql -d diffusion_experiment -f migrations/006_confirmatory_outcome_contract.sql
+psql -d diffusion_experiment -f migrations/007_experiment_catalysts.sql
 python3 seed_entities.py
 cd tests && python3 -m pytest -v
 ```

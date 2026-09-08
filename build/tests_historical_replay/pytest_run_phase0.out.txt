@@ -65,4 +65,4 @@ tests_historical_replay/test_forward_purpose_guards.py::test_manual_resolve_rais
 tests_historical_replay/test_forward_purpose_guards.py::test_manual_resolve_succeeds_past_the_guard_with_matching_purpose PASSED [100%]
 
 - generated xml file: C:\Users\padra\Documents\GitHub\diffusion-experiment\build\tests_historical_replay\pytest_run_phase0.xml -
-============================= 58 passed in 36.48s =============================
+============================= 58 passed in 36.30s =============================

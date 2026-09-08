@@ -574,28 +574,39 @@ def test_verify_fails_with_specific_message_on_checksum_mismatch(disposable_db_n
     assert "edited" in message
 
 
-def test_verify_checksum_input_is_raw_bytes_not_normalized(disposable_db_name, tmp_path):
-    """A whitespace/line-ending-only change to an already-recorded
-    migration file must be detected as drift -- checksum input is frozen
-    literally as hashlib.sha256(path.read_bytes()).hexdigest(), no
-    normalization. Uses a private copy of the manifest pointed at a
-    temp-copied migration file so the real repo file on disk is never
-    touched."""
+def test_verify_checksum_input_is_raw_bytes_not_normalized(
+    disposable_db_name,
+    tmp_path,
+    monkeypatch,
+):
+    """Verification detects byte-only migration drift without ever mutating
+    the real repository migration file."""
     bd.cmd_bootstrap(disposable_db_name, "forward")
 
-    real_path = bd._migration_path("migrations/004_range_valued_guidance.sql")
+    target = "migrations/004_range_valued_guidance.sql"
+    real_path = bd._migration_path(target)
     original_bytes = real_path.read_bytes()
-    try:
-        # Only whitespace/line-ending changes -- \n -> \r\n.
-        mutated_bytes = original_bytes.replace(b"\n", b"\r\n")
-        assert mutated_bytes != original_bytes  # confirms the file actually has newlines to mutate
-        real_path.write_bytes(mutated_bytes)
 
-        ok, message = bd.cmd_verify(disposable_db_name, "forward")
-        assert ok is False
-        assert '"004"' in message
-    finally:
-        real_path.write_bytes(original_bytes)  # restore the real repo file unconditionally
+    mutated_bytes = original_bytes.replace(b"\n", b"\r\n")
+    assert mutated_bytes != original_bytes
+
+    copy_path = tmp_path / "004_range_valued_guidance.sql"
+    copy_path.write_bytes(mutated_bytes)
+
+    original_migration_path = bd._migration_path
+
+    def _redirected(relative_path):
+        if relative_path == target:
+            return copy_path
+        return original_migration_path(relative_path)
+
+    monkeypatch.setattr(bd, "_migration_path", _redirected)
+
+    ok, message = bd.cmd_verify(disposable_db_name, "forward")
+
+    assert ok is False
+    assert '"004"' in message
+    assert real_path.read_bytes() == original_bytes
 
 
 # ===========================================================================

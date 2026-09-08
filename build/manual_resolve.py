@@ -34,6 +34,7 @@ import entity_resolution
 from extraction_runner import (
     DB_DSN, RELATIONSHIP_TYPE_SYNONYMS, generate_candidates_for_event_version,
 )
+from public_time_provenance import resolve_relationship_public_time
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("manual_resolve")
@@ -49,7 +50,7 @@ def list_pending(conn) -> None:
     print(f"\n{len(mentions)} pending (showing up to 100).")
 
 
-def _write_backfilled_relationships(conn, mention: dict, newly_resolved_entity_id: str) -> int:
+def _write_backfilled_relationships(conn, mention: dict, newly_resolved_entity_id: str, purpose: str) -> int:
     """Scans the mention's own extraction run's CLEANED (validated) output
     for any relationship naming this mention's raw_name, and writes it now
     if the OTHER side is also resolvable. Returns the count written.
@@ -68,13 +69,30 @@ def _write_backfilled_relationships(conn, mention: dict, newly_resolved_entity_i
         )
         raw_output = cur.fetchone()[0]
     with conn.cursor() as cur:
-        cur.execute("SELECT raw_content, canonical_first_public_at FROM raw_documents WHERE document_id = %s",
-                    (mention["document_id"],))
-        raw_content, canonical_first_public_at = cur.fetchone()
+        cur.execute(
+            "SELECT raw_content, canonical_first_public_at, first_public_timestamp_precision "
+            "FROM raw_documents WHERE document_id = %s",
+            (mention["document_id"],),
+        )
+        raw_content, canonical_first_public_at, canonical_precision = cur.fetchone()
 
     resolution_index = entity_resolution.build_resolution_index(conn)
     written = 0
     resolution_time = datetime.now(timezone.utc)
+
+    # Historical Replay Phase 1A (spec Section 4.2): resolved ONCE, up
+    # front, before the per-relationship loop below -- this is document-
+    # level provenance, not per-relationship, and resolving it here
+    # guarantees malformed provenance (historical_replay with missing
+    # canonical/precision, or ANY purpose with negative precision) is
+    # caught before any relationship from this mention is written, rather
+    # than failing partway through the loop.
+    evidence_publicly_available_at, evidence_public_time_precision = resolve_relationship_public_time(
+        canonical_first_public_at=canonical_first_public_at,
+        first_public_timestamp_precision=canonical_precision,
+        purpose=purpose,
+        fallback_observed_at=resolution_time,
+    )
 
     for event in raw_output.get("events", []):
         for rel in event.get("relationships", []):
@@ -103,13 +121,14 @@ def _write_backfilled_relationships(conn, mention: dict, newly_resolved_entity_i
                         (entity_id_a, entity_id_b, relationship_type, source_authority,
                          relationship_evidence, shock_transmission_evidence,
                          raw_llm_relationship_score, evidence_publicly_available_at,
+                         evidence_public_time_precision,
                          system_observed_at, source_document_id, extraction_run_id)
-                    VALUES (%s, %s, %s, %s, %s, 'new_or_unobserved', %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, 'new_or_unobserved', %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (extraction_run_id, entity_id_a, entity_id_b, relationship_type) DO NOTHING
                     """,
                     (entity_id_a, entity_id_b, mapped_type, rel["source_authority"],
                      rel["relationship_evidence"], rel.get("raw_llm_relationship_score"),
-                     canonical_first_public_at or resolution_time,
+                     evidence_publicly_available_at, evidence_public_time_precision,
                      # Backfill rule (§3): system_observed_at is the ACTUAL
                      # resolution timestamp, never backdated to the original
                      # extraction time.
@@ -148,7 +167,7 @@ def _rerun_candidate_generation_for_document(conn, document_id: str) -> None:
         generate_candidates_for_event_version(conn, event_version_id, issuer_entity_id, decision_at)
 
 
-def resolve_mention(conn, mention_id: str, entity_id: str) -> None:
+def resolve_mention(conn, mention_id: str, entity_id: str, purpose: str) -> None:
     with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         cur.execute("SELECT * FROM unresolved_entity_mentions WHERE mention_id = %s", (mention_id,))
         mention = cur.fetchone()
@@ -157,7 +176,7 @@ def resolve_mention(conn, mention_id: str, entity_id: str) -> None:
     if mention["status"] == "resolved":
         raise ValueError(f"Mention {mention_id} is already resolved (to entity {mention['resolved_entity_id']})")
 
-    written = _write_backfilled_relationships(conn, mention, entity_id)
+    written = _write_backfilled_relationships(conn, mention, entity_id, purpose)
 
     with conn.cursor() as cur:
         cur.execute(
@@ -172,7 +191,7 @@ def resolve_mention(conn, mention_id: str, entity_id: str) -> None:
               mention_id, mention["raw_name"], entity_id, written)
 
 
-def create_entity_and_resolve(conn, mention_id: str, legal_name: str) -> str:
+def create_entity_and_resolve(conn, mention_id: str, legal_name: str, purpose: str) -> str:
     """§3a: a manually-resolved entity outside the 108-company watchlist is
     added to `entities` but deliberately NEVER to `watchlist_membership` --
     it becomes a valid candidate-graph member without becoming a polled
@@ -188,7 +207,7 @@ def create_entity_and_resolve(conn, mention_id: str, legal_name: str) -> str:
             "VALUES (%s, %s, %s, 'manual_resolution')",
             (entity_id, legal_name, entity_resolution.normalize_entity_name(legal_name)),
         )
-    resolve_mention(conn, mention_id, entity_id)
+    resolve_mention(conn, mention_id, entity_id, purpose)
     return entity_id
 
 
@@ -216,9 +235,9 @@ def main():
             list_pending(conn)
         elif args.command == "resolve":
             if args.new_entity:
-                create_entity_and_resolve(conn, args.mention_id, args.new_entity)
+                create_entity_and_resolve(conn, args.mention_id, args.new_entity, args.purpose)
             else:
-                resolve_mention(conn, args.mention_id, args.entity_id)
+                resolve_mention(conn, args.mention_id, args.entity_id, args.purpose)
     except Exception:
         conn.rollback()
         raise

@@ -61,7 +61,7 @@ def test_resolving_a_mention_backfills_relationship_with_resolution_time_not_bac
         mention_id = cur.fetchone()[0]
 
     before_resolution = datetime.now(timezone.utc)
-    new_entity_id = create_entity_and_resolve(conn, str(mention_id), "Formerly Unknown Corporation")
+    new_entity_id = create_entity_and_resolve(conn, str(mention_id), "Formerly Unknown Corporation", "forward")
     after_resolution = datetime.now(timezone.utc)
 
     with conn.cursor() as cur:
@@ -96,7 +96,7 @@ def test_new_entity_from_manual_resolution_is_not_added_to_watchlist(conn):
         cur.execute("SELECT mention_id FROM unresolved_entity_mentions WHERE document_id = %s", (document_id,))
         mention_id = cur.fetchone()[0]
 
-    new_entity_id = create_entity_and_resolve(conn, str(mention_id), "Some Counterparty Incorporated")
+    new_entity_id = create_entity_and_resolve(conn, str(mention_id), "Some Counterparty Incorporated", "forward")
 
     with conn.cursor() as cur:
         cur.execute("SELECT count(*) FROM watchlist_membership WHERE entity_id = %s", (new_entity_id,))

@@ -132,6 +132,7 @@ import psycopg2.extras
 import db_config
 import entity_resolution
 from llm_client import PROMPT_VERSION, load_prompt_texts
+from public_time_provenance import resolve_relationship_public_time
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("extraction_runner")
@@ -1035,11 +1036,14 @@ def _do_process_catalyst(conn, catalyst_id: str, docs: list, prompt_version: str
 
     with conn.cursor() as cur:
         cur.execute(
-            "SELECT document_id, raw_content, canonical_first_public_at FROM raw_documents "
-            "WHERE document_id::text = ANY(%s)",
+            "SELECT document_id, raw_content, canonical_first_public_at, first_public_timestamp_precision "
+            "FROM raw_documents WHERE document_id::text = ANY(%s)",
             (list(doc_run_ids.keys()),),
         )
-        doc_meta = {str(doc_id): (content, public_at) for doc_id, content, public_at in cur.fetchall()}
+        doc_meta = {
+            str(doc_id): (content, public_at, precision)
+            for doc_id, content, public_at, precision in cur.fetchall()
+        }
     raw_content_by_doc = {doc_id: meta[0] for doc_id, meta in doc_meta.items()}
 
     groups: dict[tuple, list[tuple[str, int, dict, list[tuple[str, str]], frozenset]]] = {}
@@ -1203,8 +1207,17 @@ def _do_process_catalyst(conn, catalyst_id: str, docs: list, prompt_version: str
                     continue
                 if entity_id_a == entity_id_b:
                     continue
-                _content, canonical_public_at = doc_meta.get(document_id, (None, None))
-                public_at = canonical_public_at or system_observed_at
+                _content, canonical_public_at, canonical_precision = doc_meta.get(document_id, (None, None, None))
+                public_at, public_time_precision = resolve_relationship_public_time(
+                    canonical_first_public_at=canonical_public_at,
+                    first_public_timestamp_precision=canonical_precision,
+                    purpose="forward",  # extraction_runner.py is hardcoded to
+                    # assert_database_purpose(conn, "forward") (see main()) and
+                    # cannot reach historical_replay under the current CLI --
+                    # Historical Replay Phase 1A, spec Section 3 invariant 10 /
+                    # Section 4.1.
+                    fallback_observed_at=system_observed_at,
+                )
                 with conn.cursor() as cur:
                     cur.execute(
                         """
@@ -1212,14 +1225,15 @@ def _do_process_catalyst(conn, catalyst_id: str, docs: list, prompt_version: str
                             (entity_id_a, entity_id_b, relationship_type, source_authority,
                              relationship_evidence, shock_transmission_evidence,
                              raw_llm_relationship_score, evidence_publicly_available_at,
+                             evidence_public_time_precision,
                              system_observed_at, source_document_id, extraction_run_id)
-                        VALUES (%s, %s, %s, %s, %s, 'new_or_unobserved', %s, %s, %s, %s, %s)
+                        VALUES (%s, %s, %s, %s, %s, 'new_or_unobserved', %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (extraction_run_id, entity_id_a, entity_id_b, relationship_type)
                         DO NOTHING
                         """,
                         (entity_id_a, entity_id_b, rel["relationship_type"], rel["source_authority"],
                          rel["relationship_evidence"], rel.get("raw_llm_relationship_score"),
-                         public_at, system_observed_at, document_id, extraction_run_id),
+                         public_at, public_time_precision, system_observed_at, document_id, extraction_run_id),
                     )
                     if cur.rowcount:
                         counts["relationships_written"] += 1
